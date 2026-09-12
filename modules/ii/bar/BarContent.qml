@@ -20,14 +20,14 @@ Item {
 
     readonly property bool trayHasItems: TrayService.hasItems
 
-    function filterLayout(layout) {
-        if (trayHasItems) return layout
+    function filterLayout(layout, hasTray) {
+        if (hasTray) return layout
         return layout.filter(name => name !== "sysTray")
     }
 
-    readonly property var effectiveLeftLayout:   filterLayout(Config.options.bar.layouts.leftLayout)
-    readonly property var effectiveMiddleLayout: filterLayout(Config.options.bar.layouts.middleLayout)
-    readonly property var effectiveRightLayout:  filterLayout(Config.options.bar.layouts.rightLayout)
+    readonly property var effectiveLeftLayout:   filterLayout(Config.options.bar.layouts.leftLayout, trayHasItems)
+    readonly property var effectiveMiddleLayout: filterLayout(Config.options.bar.layouts.middleLayout, trayHasItems)
+    readonly property var effectiveRightLayout:  filterLayout(Config.options.bar.layouts.rightLayout, trayHasItems)
 
     function getWidgetUrl(name) {
         if (!name) return "";

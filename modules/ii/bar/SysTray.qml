@@ -18,14 +18,16 @@ Item {
     readonly property bool isOnLeft: Config.options.bar.layouts.leftLayout.includes("sysTray")
     readonly property bool isMaterial: Config.options.bar.cornerStyle === 3
 
-    visible: (pinnedItems.length > 0) || (showOverflowMenu && unpinnedItems.length > 0)
-    implicitWidth: !visible ? 0 : (vertical ? Appearance.sizes.verticalBarWidth : (isMaterial ? pill.implicitWidth - 4 : gridLayout.implicitWidth))
-    implicitHeight: !visible ? 0 : (vertical ? gridLayout.implicitHeight + 6 : Appearance.sizes.barHeight)
+    property var pinnedItems: TrayService.pinnedItems
+    property var unpinnedItems: TrayService.unpinnedItems
+    readonly property bool hasVisibleItems: (pinnedItems && pinnedItems.length > 0) || (showOverflowMenu && unpinnedItems && unpinnedItems.length > 0)
 
-    property list<var> pinnedItems: TrayService.pinnedItems
-    property list<var> unpinnedItems: TrayService.unpinnedItems
+    visible: hasVisibleItems
+    implicitWidth: !hasVisibleItems ? 0 : (vertical ? Appearance.sizes.verticalBarWidth : (isMaterial ? pill.implicitWidth - 4 : gridLayout.implicitWidth))
+    implicitHeight: !hasVisibleItems ? 0 : (vertical ? gridLayout.implicitHeight + 6 : Appearance.sizes.barHeight)
+
     onUnpinnedItemsChanged: {
-        if (unpinnedItems.length == 0) root.closeOverflowMenu()
+        if (unpinnedItems && unpinnedItems.length == 0) root.closeOverflowMenu()
     }
 
     function grabFocus() { focusGrab.active = true }

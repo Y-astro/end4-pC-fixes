@@ -10,22 +10,24 @@ Singleton {
 
     property int updateTrigger: 0
     property bool smartTray: Config.options.tray.filterPassive
-    property list<var> itemsInUserList: {
+    property var itemsInUserList: {
         updateTrigger;
         return SystemTray.items.values.filter(i => (Config.options.tray.pinnedItems.includes(i.id) && (!smartTray || i.status !== Status.Passive)))
     }
-    property list<var> itemsNotInUserList: {
+    property var itemsNotInUserList: {
         updateTrigger;
         return SystemTray.items.values.filter(i => (!Config.options.tray.pinnedItems.includes(i.id) && (!smartTray || i.status !== Status.Passive)))
     }
 
     property bool invertPins: Config.options.tray.invertPinnedItems
-    property list<var> pinnedItems: invertPins ? itemsNotInUserList : itemsInUserList
-    property list<var> unpinnedItems: invertPins ? itemsInUserList : itemsNotInUserList
-    readonly property bool hasItems: pinnedItems.length > 0 || unpinnedItems.length > 0
+    property var pinnedItems: invertPins ? itemsNotInUserList : itemsInUserList
+    property var unpinnedItems: invertPins ? itemsInUserList : itemsNotInUserList
+    readonly property bool hasItems: (pinnedItems && pinnedItems.length > 0) || (unpinnedItems && unpinnedItems.length > 0)
 
     Instantiator {
         model: SystemTray.items
+        onObjectAdded: root.updateTrigger++
+        onObjectRemoved: root.updateTrigger++
         Connections {
             required property var modelData
             target: modelData
@@ -33,6 +35,14 @@ Singleton {
                 root.updateTrigger++
             }
         }
+    }
+
+    Connections {
+        target: SystemTray.items
+        function onValuesChanged() { root.updateTrigger++ }
+        function onRowsInserted() { root.updateTrigger++ }
+        function onRowsRemoved() { root.updateTrigger++ }
+        function onModelReset() { root.updateTrigger++ }
     }
 
     function getTooltipForItem(item) {

@@ -428,7 +428,7 @@ except Exception:
             icon: "screenshot_region",
             category: "Capture",
             desc: "Interactive area screenshot directly to clipboard",
-            action: () => exec("grim -g \"$(slurp)\" - | wl-copy && notify-send -a 'Radial Menu' 'Screenshot' 'Area copied to clipboard' &")
+            action: () => exec("~/.config/hypr/scripts/screenshot_annotate.sh &")
         },
         "screen_ocr": {
             id: "screen_ocr",
@@ -658,7 +658,7 @@ except Exception:
             icon: "screenshot_region",
             category: "Capture",
             desc: "Capture selected screen region to clipboard",
-            action: () => exec("grimblast --freeze copy area || hyprshot -m region --clipboard-only &")
+            action: () => exec("~/.config/hypr/scripts/screenshot_annotate.sh &")
         },
         "screenshot_full": {
             id: "screenshot_full",
@@ -666,7 +666,7 @@ except Exception:
             icon: "fullscreen",
             category: "Capture",
             desc: "Capture entire screen to clipboard",
-            action: () => exec("grimblast copy output || hyprshot -m output --clipboard-only &")
+            action: () => exec("flameshot full -c &")
         },
         "screenrecord": {
             id: "screenrecord",

@@ -3,6 +3,7 @@ import qs.modules.common.widgets
 import qs.services
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Services.UPower
 
 MouseArea {
     id: root
@@ -16,10 +17,41 @@ MouseArea {
     readonly property bool isLow: percentage <= Config.options.battery.low / 100
     readonly property string displayText: (root.vertical && root.percentage > 99) ? "" : batteryProgress.text
 
+    readonly property string modeChar: {
+        switch (PowerProfiles.profile) {
+            case PowerProfile.PowerSaver: return "S"
+            case PowerProfile.Balanced: return "B"
+            case PowerProfile.Performance: return "P"
+            default: return ""
+        }
+    }
+
     implicitWidth:  vertical ? Appearance.sizes.verticalBarWidth : batteryProgress.valueBarWidth + 8
     implicitHeight: vertical ? batteryProgress.valueBarWidth + 8 : Appearance.sizes.barHeight
 
     hoverEnabled: !Config.options.bar.tooltips.clickToShow
+
+    onClicked: (mouse) => {
+        if (mouse.button === Qt.LeftButton) {
+            if (PowerProfiles.hasPerformanceProfile) {
+                switch (PowerProfiles.profile) {
+                    case PowerProfile.PowerSaver:
+                        PowerProfiles.profile = PowerProfile.Balanced;
+                        break;
+                    case PowerProfile.Balanced:
+                        PowerProfiles.profile = PowerProfile.Performance;
+                        break;
+                    case PowerProfile.Performance:
+                        PowerProfiles.profile = PowerProfile.PowerSaver;
+                        break;
+                }
+            } else {
+                PowerProfiles.profile = (PowerProfiles.profile === PowerProfile.Balanced)
+                    ? PowerProfile.PowerSaver
+                    : PowerProfile.Balanced;
+            }
+        }
+    }
 
     ClippedProgressBar {
         id: batteryProgress
@@ -27,6 +59,8 @@ MouseArea {
         value: percentage
         rotation: root.vertical ? -90 : 0
         highlightColor: (isLow && !isCharging) ? Appearance.m3colors.m3error : Appearance.colors.colOnSecondaryContainer
+        text: `${Math.round(value * 100)}${root.modeChar}`
+        valueBarWidth: text.length > 3 ? 38 : (text.length > 2 ? 34 : 30)
         Item {
             anchors.centerIn: parent
             width: batteryProgress.valueBarWidth
@@ -78,7 +112,7 @@ MouseArea {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.topMargin: root.isCharging ? 2 : 4
                         font: batteryProgress.font
-                        text: root.percentage * 100 
+                        text: `${Math.round(root.percentage * 100)}${root.modeChar}`
                         visible: root.percentage < 1
                     }
                 }

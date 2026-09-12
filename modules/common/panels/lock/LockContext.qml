@@ -20,6 +20,7 @@ Scope {
     property bool unlockInProgress: false
     property bool showFailure: false
     property bool fingerprintsConfigured: false
+    property bool faceAuthConfigured: false
     property var targetAction: LockContext.ActionEnum.Unlock
     property bool alsoInhibitIdle: false
 
@@ -40,6 +41,7 @@ Scope {
         root.clearText();
         root.unlockInProgress = false;
         stopFingerPam();
+        stopFacePam();
     }
 
     Timer {
@@ -59,10 +61,11 @@ Scope {
         passwordClearTimer.restart();
     }
 
-    function tryUnlock(alsoInhibitIdle = false) {
-        root.alsoInhibitIdle = alsoInhibitIdle;
-        root.unlockInProgress = true;
-        pam.start();
+    function tryUnlock() {
+        if (!root.unlockInProgress) {
+            root.unlockInProgress = true;
+            pam.start();
+        }
     }
 
     function tryFingerUnlock() {
@@ -74,6 +77,18 @@ Scope {
     function stopFingerPam() {
         if (fingerPam.active) {
             fingerPam.abort();
+        }
+    }
+
+    function tryFaceUnlock() {
+        if (root.faceAuthConfigured) {
+            facePam.start();
+        }
+    }
+
+    function stopFacePam() {
+        if (facePam.active) {
+            facePam.abort();
         }
     }
 
@@ -94,6 +109,15 @@ Scope {
             }
         }
     }
+
+    Process {
+        id: faceCheckProc
+        running: true
+        command: ["bash", "-c", "test -f /usr/lib/security/howdy/models/$(whoami).dat || test -f /var/lib/howdy/models/$(whoami).dat || test -f /etc/howdy/models/$(whoami).dat"]
+        onExited: (exitCode, exitStatus) => {
+            root.faceAuthConfigured = (exitCode === 0);
+        }
+    }
     
     PamContext {
         id: pam
@@ -110,11 +134,14 @@ Scope {
             if (result == PamResult.Success) {
                 root.unlocked(root.targetAction);
                 stopFingerPam();
+                stopFacePam();
             } else {
+                if (root.currentText.length > 0) {
+                    GlobalStates.screenUnlockFailed = true;
+                    root.showFailure = true;
+                }
                 root.clearText();
                 root.unlockInProgress = false;
-                GlobalStates.screenUnlockFailed = true;
-                root.showFailure = true;
             }
         }
     }
@@ -129,8 +156,30 @@ Scope {
             if (result == PamResult.Success) {
                 root.unlocked(root.targetAction);
                 stopFingerPam();
+                stopFacePam();
             } else if (result == PamResult.Error) { // if timeout or etc..
                 tryFingerUnlock()
+            }
+        }
+    }
+
+    PamContext {
+        id: facePam
+
+        configDirectory: "pam"
+        config: "howdy.conf"
+
+        onPamMessage: {
+            if (this.responseRequired) {
+                this.respond("");
+            }
+        }
+
+        onCompleted: result => {
+            if (result == PamResult.Success) {
+                root.unlocked(root.targetAction);
+                stopFingerPam();
+                stopFacePam();
             }
         }
     }

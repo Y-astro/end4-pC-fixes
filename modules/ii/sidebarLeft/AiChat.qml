@@ -58,6 +58,18 @@ Item {
             }
         },
         {
+            name: "auto",
+            description: Translation.tr("Toggle auto-execution of shell commands (on/off)"),
+            execute: args => {
+                if (args.length === 0 || args[0] === "get") {
+                    Ai.printAutoExecute();
+                } else {
+                    const val = args[0].toLowerCase();
+                    Ai.setAutoExecute(val === "on" || val === "true" || val === "1");
+                }
+            }
+        },
+        {
             name: "tool",
             description: Translation.tr("Set the tool to use for the model."),
             execute: args => {

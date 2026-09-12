@@ -28,7 +28,7 @@ ButtonMouseArea {
     property real workspaceIconSizeShrinked: workspaceButtonWidth * 0.55
     property real workspaceIconOpacityShrinked: 1
     property real workspaceIconMarginShrinked: -4
-    property int workspaceIndexInGroup: (wsModel.activeNumber - 1) % wsModel.shownCount
+    property int workspaceIndexInGroup: wsModel.activeVisibleIndex
     property real specialTextSize: workspaceButtonWidth * 0.5
 
     Layout.alignment: vertical ? Qt.AlignHCenter : Qt.AlignVCenter
@@ -48,11 +48,14 @@ ButtonMouseArea {
     hoverEnabled: true
     property int hoverIndex: {
         const position = root.vertical ? mouseY : mouseX;
-        return Math.floor(position / root.workspaceButtonWidth);
+        const idx = Math.floor(position / root.workspaceButtonWidth);
+        return Math.max(0, Math.min(idx, wsModel.visibleCount - 1));
     }
 
     function switchWorkspaceToHovered() {
-        WM.switchWorkspace(wsModel.getWorkspaceIdAt(hoverIndex));
+        if (wsModel.visibleWorkspaces && wsModel.visibleWorkspaces[hoverIndex]) {
+            WM.switchWorkspace(wsModel.visibleWorkspaces[hoverIndex].id);
+        }
     }
     onPressed: mouse => {
         if (mouse.button == Qt.LeftButton)
@@ -99,14 +102,15 @@ ButtonMouseArea {
             visible: false
 
             Repeater {
-                model: wsModel.shownCount
+                model: wsModel.visibleCount
                 delegate: Item {
                     id: wsBg
                     required property int index
-                    readonly property int wsId: wsModel.getWorkspaceIdAt(index)
-                    property bool currentOccupied: wsModel.occupied[index] && wsId != wsModel.fakeWorkspace
-                    property bool previousOccupied: index > 0 && wsModel.occupied[index - 1] && (wsId - 1) != wsModel.fakeWorkspace
-                    property bool nextOccupied: index < wsModel.shownCount - 1 && wsModel.occupied[index + 1] && (wsId + 1) != wsModel.fakeWorkspace
+                    readonly property var wsData: wsModel.visibleWorkspaces[index]
+                    readonly property int wsId: wsData ? wsData.id : 0
+                    property bool currentOccupied: (wsData ? wsData.occupied : false) && wsId != wsModel.fakeWorkspace
+                    property bool previousOccupied: index > 0 && wsModel.visibleWorkspaces[index - 1]?.occupied && (wsModel.visibleWorkspaces[index - 1]?.id === wsId - 1) && (wsId - 1) != wsModel.fakeWorkspace
+                    property bool nextOccupied: index < wsModel.visibleCount - 1 && wsModel.visibleWorkspaces[index + 1]?.occupied && (wsModel.visibleWorkspaces[index + 1]?.id === wsId + 1) && (wsId + 1) != wsModel.fakeWorkspace
                     implicitWidth: root.workspaceButtonWidth
                     implicitHeight: root.workspaceButtonWidth
 
@@ -153,14 +157,14 @@ ButtonMouseArea {
             anchors.fill: parent
             z: 2
 
-            index: root.workspaceIndexInGroup
+            index: wsModel.activeVisibleIndex
         }
 
         /////////////////// Hover ///////////////////
         TrailingIndicator {
             id: interactionIndicator
             z: 3
-            index: root.containsMouse ? root.hoverIndex : root.workspaceIndexInGroup
+            index: root.containsMouse ? root.hoverIndex : wsModel.activeVisibleIndex
             color: "transparent"
             StateOverlay {
                 id: hoverOverlay
@@ -180,7 +184,7 @@ ButtonMouseArea {
             layer.enabled: true // For the masking
 
             Repeater {
-                model: wsModel.shownCount
+                model: wsModel.visibleCount
                 delegate: NumberWorkspaceItem {}
             }
         }
@@ -204,10 +208,11 @@ ButtonMouseArea {
             z: 6
 
             Repeater {
-                model: wsModel.shownCount
+                model: wsModel.visibleCount
                 delegate: WorkspaceItem {
                     id: wsApp
-                    property var biggestWindow: wsModel.biggestWindow[index]
+                    property var wsData: wsModel.visibleWorkspaces[index]
+                    property var biggestWindow: wsData ? wsData.biggestWindow : null
                     property var mainAppIconSource: Quickshell.iconPath(AppSearch.guessIcon(biggestWindow?.class), "image-missing")
 
                     AppIcon {
@@ -351,16 +356,18 @@ ButtonMouseArea {
 
     component WorkspaceItem: Item {
         required property int index
-        readonly property int wsId: wsModel.getWorkspaceIdAt(index)
+        readonly property var wsData: wsModel.visibleWorkspaces[index]
+        readonly property int wsId: wsData ? wsData.id : (index + 1)
         implicitWidth: root.vertical ? root.barThickness : root.workspaceButtonWidth
         implicitHeight: root.vertical ? root.workspaceButtonWidth : root.barThickness
     }
 
     component NumberWorkspaceItem: WorkspaceItem {
         id: wsNum
-        property bool hasBiggestWindow: !!wsModel.biggestWindow[index]
-        property int wsId: wsModel.getWorkspaceIdAt(index)
-        property color contentColor: (wsModel.occupied[wsNum.index] && wsId !== wsModel.fakeWorkspace) ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1Inactive
+        property var wsData: wsModel.visibleWorkspaces[index]
+        property int wsId: wsData ? wsData.id : (index + 1)
+        property bool hasBiggestWindow: !!(wsData ? wsData.biggestWindow : null)
+        property color contentColor: ((wsData ? wsData.occupied : false) && wsId !== wsModel.fakeWorkspace) ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1Inactive
         property bool showingNumbers: {
             if (root.superPressAndHeld)
                 return true;

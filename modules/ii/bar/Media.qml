@@ -99,8 +99,9 @@ Item {
         onPressed: (event) => {
             if (event.button === Qt.MiddleButton)      activePlayer?.togglePlaying()
             else if (event.button === Qt.BackButton)   activePlayer?.previous()
-            else if (event.button === Qt.ForwardButton || event.button === Qt.RightButton) activePlayer?.next()
-            else if (event.button === Qt.LeftButton)   GlobalStates.mediaControlsOpen = !GlobalStates.mediaControlsOpen
+            else if (event.button === Qt.ForwardButton) activePlayer?.next()
+            else if (event.button === Qt.RightButton)  GlobalStates.mediaControlsOpen = !GlobalStates.mediaControlsOpen
+            else if (event.button === Qt.LeftButton)   activePlayer?.togglePlaying()
         }
     }
 

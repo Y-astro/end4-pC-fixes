@@ -46,15 +46,25 @@ Singleton {
     property real dropShelfX: 0
     property real dropShelfY: 0
 
+    // Radial menu state
+    property bool radialMenuOpen: false
+    property var  radialMenuScreen: null
+    property real radialMenuX: 0
+    property real radialMenuY: 0
+    property var  radialMenuContextWindow: ({})
+    property var  radialMenuGpuProfile: null
+    property var  browserTabsList: []
+    property var  activeClientsList: []
+
     signal centeredWallpaperThumpRequested()
 
     // Shared by desktop (Background) and lock screen (LockSurface) scroll-to-cycle
     readonly property var centeredShapeOptions: [
-        "Circle", "Square", "Slanted", "Arch", "Arrow", "SemiCircle", "Oval", "Pill",
+        "Circle", "Square", "Slanted", "Arch", "Fan", "Arrow", "SemiCircle", "Oval", "Pill",
         "Triangle", "Diamond", "ClamShell", "Pentagon", "Gem", "Sunny", "VerySunny",
         "Cookie4Sided", "Cookie6Sided", "Cookie7Sided", "Cookie9Sided", "Cookie12Sided",
-        "Ghostish", "Clover4Leaf", "Clover8Leaf", "Burst", "SoftBurst", "Flower",
-        "Puffy", "PuffyDiamond", "PixelCircle", "Bun", "Heart"
+        "Ghostish", "Clover4Leaf", "Clover8Leaf", "Burst", "SoftBurst", "Boom", "SoftBoom", "Flower",
+        "Puffy", "PuffyDiamond", "PixelCircle", "PixelTriangle", "Bun", "Heart"
     ]
     function cycleCenteredWallpaperShape(direction) {
         const opts = root.centeredShapeOptions
@@ -122,6 +132,81 @@ Singleton {
         description: "Toggles centered wallpaper"
         onPressed: {
             Config.options.background.centeredWallpaper = !Config.options.background.centeredWallpaper
+        }
+    }
+
+
+    // ── Radial menu: cursor-position + active window context reader ───────────
+    Process {
+        id: radialMenuCursorProc
+        command: ["python3", `${Directories.configPath}/modules/ii/radialMenu/hypr_ipc.py`, "context"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const data = JSON.parse(text.trim())
+                    const pos = data.cursor || { x: 0, y: 0 }
+                    let screen = null
+                    for (let i = 0; i < Quickshell.screens.length; i++) {
+                        const s = Quickshell.screens[i]
+                        if (pos.x >= s.x && pos.x < s.x + s.width &&
+                            pos.y >= s.y && pos.y < s.y + s.height) {
+                            screen = s
+                            break
+                        }
+                    }
+                    if (!screen) {
+                        const name = Hyprland.focusedMonitor?.name
+                        screen = Quickshell.screens.find(s => s.name === name) ?? Quickshell.screens[0]
+                    }
+                    root.radialMenuContextWindow = data.window || {}
+                    root.radialMenuGpuProfile = data.gpu || null
+                    root.browserTabsList = data.tabs || []
+                    root.activeClientsList = data.clients || []
+                    root.radialMenuScreen = screen
+                    root.radialMenuX = pos.x - screen.x
+                    root.radialMenuY = pos.y - screen.y
+                    root.radialMenuOpen = true
+                } catch (e) {
+                    console.warn("[RadialMenu] context/cursorpos parse failed:", e)
+                }
+            }
+        }
+    }
+
+    // On-demand tab refresh process
+    Process {
+        id: refreshTabsProc
+        command: ["python3", `${Directories.configPath}/modules/ii/radialMenu/get_browser_tabs.py`]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.browserTabsList = JSON.parse(text.trim())
+                } catch(e) {}
+            }
+        }
+    }
+
+    function refreshTabs() {
+        refreshTabsProc.running = true
+    }
+
+    signal radialMenuCloseRequested()
+
+    function requestCloseRadialMenu() {
+        radialMenuCloseRequested()
+    }
+
+    CompositorGlobalShortcut {
+        name: "radialMenu"
+        description: "Open radial pie menu at cursor"
+        onPressed: {
+            if (root.radialMenuOpen) {
+                root.requestCloseRadialMenu()
+                return
+            }
+            radialMenuCursorProc.running = true
         }
     }
 }

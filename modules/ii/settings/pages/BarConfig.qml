@@ -552,6 +552,12 @@ ContentPage {
                         { displayName: Translation.tr("Icons"), icon: "interests",              value: "icon" },
                     ]
                 }
+                ConfigSwitch {
+                    buttonIcon: "visibility_off"
+                    text: Translation.tr("Hide unused workspaces")
+                    checked: Config.options.bar.workspaces.hideUnused ?? false
+                    onCheckedChanged: { Config.options.bar.workspaces.hideUnused = checked; }
+                }
             }
         }
 

@@ -27,24 +27,34 @@ ContentPage {
         const updateScript = `
             set -e
             DIR="$HOME/.config/quickshell"
+            BACKUP_DIR="$DIR/backups"
+            mkdir -p "$BACKUP_DIR"
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+            echo "Backing up current configuration..."
+            if [ -d "$DIR/end4-pC" ]; then
+                cp -a "$DIR/end4-pC" "$BACKUP_DIR/end4-pC-$TIMESTAMP"
+                echo "Backup saved to $BACKUP_DIR/end4-pC-$TIMESTAMP"
+            fi
 
             # Download to temp first
+            echo "Fetching latest upstream..."
             rm -rf "$DIR/end4-pC-tmp"
             git clone https://github.com/pctrade/end4-pC.git "$DIR/end4-pC-tmp"
 
             # Apply update
-            rm -rf "$DIR/end4-pC-old"
             [ -d "$DIR/end4-pC" ] && mv "$DIR/end4-pC" "$DIR/end4-pC-old"
             mv "$DIR/end4-pC-tmp" "$DIR/end4-pC"
 
             # Reload
+            echo "Reloading quickshell..."
             killall qs 2>/dev/null || true
             sleep 0.5
             setsid qs -c end4-pC >/tmp/qs.log 2>&1 < /dev/null &
             disown
 
-            # Cleanup
-            rm -rf "$DIR/end4-pC-old"
+            echo "Update complete! Your previous configuration is preserved at:"
+            echo "$BACKUP_DIR/end4-pC-$TIMESTAMP"
         `
 
         Quickshell.execDetached(["kitty", "--hold", "bash", "-c", updateScript])

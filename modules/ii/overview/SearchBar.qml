@@ -111,12 +111,11 @@ RowLayout {
         Layout.topMargin: 4
         Layout.bottomMargin: 4
         onClicked: {
-            GlobalStates.overviewOpen = false;
-            Quickshell.execDetached(["qs", "-p", Quickshell.shellPath(""), "ipc", "call", "region", "search"]);
+            Cliphist.wipe();
         }
-        text: "image_search"
+        text: "delete_sweep"
         StyledToolTip {
-            text: Translation.tr("Google Lens")
+            text: Translation.tr("Clear all clipboard items")
         }
     }
 

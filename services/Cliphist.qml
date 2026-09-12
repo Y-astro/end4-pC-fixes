@@ -102,7 +102,7 @@ Singleton {
 
     Process {
         id: wipeProc
-        command: ["bash", "-c", `${root.cliphistBinary} wipe; rm -rf ~/.cache/cliphist/db`]
+        command: ["bash", "-c", `${root.cliphistBinary} wipe; rm -rf ~/.cache/cliphist/db; wl-copy --clear`]
         onExited: (exitCode, exitStatus) => {
             root.entries = [];
             root.refresh();

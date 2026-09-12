@@ -180,6 +180,23 @@ MouseArea {
         scale: root.toolbarScale
         opacity: root.toolbarOpacity
 
+        // Face ID
+        Loader {
+            Layout.leftMargin: 10
+            Layout.rightMargin: 6
+            Layout.alignment: Qt.AlignVCenter
+            active: root.context.faceAuthConfigured
+            visible: active
+
+            sourceComponent: MaterialSymbol {
+                id: faceIcon
+                fill: 1
+                text: "face"
+                iconSize: Appearance.font.pixelSize.hugeass
+                color: Appearance.colors.colOnSurfaceVariant
+            }
+        }
+
         // Fingerprint
         Loader {
             Layout.leftMargin: 10
@@ -200,7 +217,7 @@ MouseArea {
         ToolbarTextField {
             id: passwordBox
             Layout.rightMargin: -Layout.leftMargin
-            placeholderText: GlobalStates.screenUnlockFailed ? Translation.tr("Incorrect password") : Translation.tr("Enter password")
+            placeholderText: GlobalStates.screenUnlockFailed ? Translation.tr("Incorrect password") : Translation.tr("Face ID / Password")
 
             // Style
             clip: true

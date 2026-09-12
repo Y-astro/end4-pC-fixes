@@ -33,8 +33,10 @@ Item {
         return midRadius;
     }
 
-    implicitWidth: vertical && root.isMaterial ? Appearance.sizes.baseVerticalBarWidth - 6 : (gridLayout.implicitWidth + padding * 2)
-    implicitHeight: vertical ? (gridLayout.implicitHeight + padding * 2) : Appearance.sizes.baseBarHeight
+    readonly property bool hasContent: vertical ? (gridLayout.implicitHeight > 0) : (gridLayout.implicitWidth > 0)
+    visible: hasContent
+    implicitWidth: !hasContent ? 0 : (vertical && root.isMaterial ? Appearance.sizes.baseVerticalBarWidth - 6 : (gridLayout.implicitWidth + padding * 2))
+    implicitHeight: !hasContent ? 0 : (vertical ? (gridLayout.implicitHeight + padding * 2) : Appearance.sizes.baseBarHeight)
 
     default property alias items: gridLayout.children
 

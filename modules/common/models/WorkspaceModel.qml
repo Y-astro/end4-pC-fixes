@@ -44,6 +44,15 @@ NestableObject {
         return root.biggestWindowForNumber(number)
     }) : []
 
+    readonly property bool hideUnused: Boolean(C.Config.options.bar?.workspaces?.hideUnused)
+    property var visibleWorkspaces: []
+    readonly property int visibleCount: visibleWorkspaces.length
+    readonly property int activeVisibleIndex: {
+        if (!visibleWorkspaces || visibleWorkspaces.length === 0) return 0;
+        const idx = visibleWorkspaces.findIndex(w => w.id === activeNumber);
+        return idx >= 0 ? idx : 0;
+    }
+
     function getWorkspaceId(group, index) {
         return group * root.shownCount + index + 1
     }
@@ -102,9 +111,30 @@ NestableObject {
             }
         }
         root.occupied = newOccupied;
+
+        let visibleList = [];
+        for (let i = 0; i < count; i++) {
+            const wsId = getWorkspaceId(root.group, i);
+            const isOccupied = root.occupied[i] && wsId !== root.fakeWorkspace;
+            const isActive = wsId === root.activeNumber;
+            const shouldShow = !root.hideUnused || isOccupied || isActive;
+
+            if (shouldShow) {
+                visibleList.push({
+                    id: wsId,
+                    indexInGroup: i,
+                    occupied: isOccupied,
+                    isActive: isActive,
+                    biggestWindow: root.shouldShowAppIcons ? root.biggestWindowForNumber(wsId) : null
+                });
+            }
+        }
+        root.visibleWorkspaces = visibleList;
     }
 
     Component.onCompleted: updateWorkspaceOccupied()
+    onActiveNumberChanged: updateWorkspaceOccupied()
+    onHideUnusedChanged: updateWorkspaceOccupied()
 
     // Hyprland
     Connections {

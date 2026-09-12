@@ -1,0 +1,10 @@
+{
+  "name": "radial_tabs",
+  "description": "Real-time Native Messaging host for Hyprland Radial Menu",
+  "path": "PLACEHOLDER_PATH/native_host.py",
+  "type": "stdio",
+  "allowed_extensions": [
+    "radial-tabs@hyprland.desktop",
+    "radial-tabs@local"
+  ]
+}

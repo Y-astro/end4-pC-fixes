@@ -2,6 +2,7 @@ import QtQuick
 
 ApiStrategy {
     property bool isReasoning: false
+    property var toolCallAccumulator: null
     
     function buildEndpoint(model: AiModel): string {
         // console.log("[AI] Endpoint: " + model.endpoint);
@@ -9,26 +10,83 @@ ApiStrategy {
     }
 
     function buildRequestData(model: AiModel, messages, systemPrompt: string, temperature: real, tools: list<var>, filePath: string) {
+        let formattedMessages = [
+            { role: "system", content: systemPrompt }
+        ];
+
+        messages.forEach(message => {
+            if (message.functionCall && message.functionName && message.functionName.length > 0) {
+                // Assistant message that requested a function call
+                const argsStr = (typeof message.functionCall.args === "string") 
+                    ? message.functionCall.args 
+                    : JSON.stringify(message.functionCall.args || {});
+                
+                formattedMessages.push({
+                    "role": "assistant",
+                    "content": message.content ? message.content.replace(/\n\n\*\*Command execution request\*\*[\s\S]*/, "").trim() : null,
+                    "tool_calls": [{
+                        "id": message.functionCall.id || "call_cmd",
+                        "type": "function",
+                        "function": {
+                            "name": message.functionName,
+                            "arguments": argsStr
+                        }
+                    }]
+                });
+            } else if (message.functionResponse !== undefined && message.functionName && message.functionName.length > 0) {
+                // Tool output message
+                formattedMessages.push({
+                    "role": "tool",
+                    "tool_call_id": message.functionCall?.id || "call_cmd",
+                    "name": message.functionName,
+                    "content": message.functionResponse
+                });
+            } else {
+                // Regular chat message
+                formattedMessages.push({
+                    "role": message.role,
+                    "content": message.rawContent
+                });
+            }
+        });
+
         let baseData = {
             "model": model.model,
-            "messages": [
-                {role: "system", content: systemPrompt},
-                ...messages.map(message => {
-                    return {
-                        "role": message.role,
-                        "content": message.rawContent,
-                    }
-                }),
-            ],
+            "messages": formattedMessages,
             "stream": true,
-            "tools": tools,
             "temperature": temperature,
         };
+
+        if (tools && tools.length > 0) {
+            baseData.tools = tools;
+        }
+
         return model.extraParams ? Object.assign({}, baseData, model.extraParams) : baseData;
     }
 
     function buildAuthorizationHeader(apiKeyEnvVarName: string): string {
         return `-H "Authorization: Bearer \$\{${apiKeyEnvVarName}\}"`;
+    }
+
+    function finishToolCall(message) {
+        if (!toolCallAccumulator || !toolCallAccumulator.name) return { finished: true };
+        let parsedArgs = {};
+        try {
+            parsedArgs = JSON.parse(toolCallAccumulator.arguments || "{}");
+        } catch (e) {
+            console.log("[AI] Could not parse tool arguments JSON: ", toolCallAccumulator.arguments);
+            parsedArgs = { command: toolCallAccumulator.arguments };
+        }
+        const callObj = {
+            id: toolCallAccumulator.id,
+            name: toolCallAccumulator.name,
+            args: parsedArgs
+        };
+        toolCallAccumulator = null;
+        return {
+            functionCall: callObj,
+            finished: true
+        };
     }
 
     function parseResponseLine(line, message) {
@@ -43,6 +101,9 @@ ApiStrategy {
         // Handle special cases
         if (!cleanData || cleanData.startsWith(":")) return {};
         if (cleanData === "[DONE]") {
+            if (toolCallAccumulator && toolCallAccumulator.name) {
+                return finishToolCall(message);
+            }
             return { finished: true };
         }
         
@@ -60,8 +121,25 @@ ApiStrategy {
 
             let newContent = "";
 
-            const responseContent = dataJson.choices[0]?.delta?.content || dataJson.message?.content;
-            const responseReasoning = dataJson.choices[0]?.delta?.reasoning || dataJson.choices[0]?.delta?.reasoning_content;
+            const responseContent = dataJson.choices?.[0]?.delta?.content || dataJson.message?.content;
+            const responseReasoning = dataJson.choices?.[0]?.delta?.reasoning || dataJson.choices?.[0]?.delta?.reasoning_content;
+
+            // Check for tool calls
+            const toolCalls = dataJson.choices?.[0]?.delta?.tool_calls || dataJson.message?.tool_calls;
+            if (toolCalls && toolCalls.length > 0) {
+                const tc = toolCalls[0];
+                if (!toolCallAccumulator) {
+                    toolCallAccumulator = {
+                        id: tc.id || ("call_" + Date.now().toString(36)),
+                        name: tc.function?.name || "",
+                        arguments: tc.function?.arguments || ""
+                    };
+                } else {
+                    if (tc.id) toolCallAccumulator.id = tc.id;
+                    if (tc.function?.name) toolCallAccumulator.name = tc.function.name;
+                    if (tc.function?.arguments) toolCallAccumulator.arguments += tc.function.arguments;
+                }
+            }
 
             if (responseContent && responseContent.length > 0) {
                 if (isReasoning) {
@@ -95,6 +173,11 @@ ApiStrategy {
                 };
             }
 
+            const finishReason = dataJson.choices?.[0]?.finish_reason;
+            if (finishReason === "tool_calls" || ((dataJson.done) && toolCallAccumulator)) {
+                return finishToolCall(message);
+            }
+
             if (dataJson.done) {
                 return { finished: true };
             }
@@ -109,12 +192,15 @@ ApiStrategy {
     }
     
     function onRequestFinished(message) {
-        // OpenAI format doesn't need special finish handling
-        return {};
+        if (toolCallAccumulator && toolCallAccumulator.name) {
+            return finishToolCall(message);
+        }
+        return { finished: true };
     }
     
     function reset() {
         isReasoning = false;
+        toolCallAccumulator = null;
     }
 
 }

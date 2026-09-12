@@ -238,9 +238,9 @@ Singleton {
                         property real x: 100
                         property real y: 100
                         property real z: 0
-                        property string style: "cookie"        // Options: "cookie", "digital"
+                        property string style: "digital"        // Options: "cookie", "digital"
                         property string color: ""
-                        property string styleLocked: "cookie"  // Options: "cookie", "digital"
+                        property string styleLocked: "digital"  // Options: "cookie", "digital"
                         property JsonObject cookie: JsonObject {
                             property bool aiStyling: false
                             property int sides: 14
@@ -249,7 +249,7 @@ Singleton {
                             property string minuteHandStyle: "medium" // Options "classic", "thin", "medium", "bold", "hide"
                             property string secondHandStyle: "dot"    // Options: "dot", "line", "classic", "hide"
                             property string dateStyle: "bubble"       // Options: "border", "rect", "bubble" , "hide"
-                            property bool timeIndicators: true
+                            property bool timeIndicators: false
                             property bool hourMarks: false
                             property bool dateInClock: true
                             property bool constantlyRotate: false
@@ -474,6 +474,7 @@ Singleton {
                     property bool monochromeIcons: true
                     property int shown: 10
                     property bool showAppIcons: false
+                    property bool hideUnused: true
                     property string indicatorStyle: "dot" // "dot" or "icon"
                     property bool alwaysShowNumbers: true
                     property int showNumberDelay: 300 // milliseconds
@@ -826,7 +827,7 @@ Singleton {
                 property int columns: 4
                 property bool closeAfterSelection: true
                 property int changeInterval: 0 
-                property string sortMode: "time"
+                property string sortMode: "custom"
             }
 
             property JsonObject windows: JsonObject {

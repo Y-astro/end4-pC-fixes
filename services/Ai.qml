@@ -51,6 +51,7 @@ Singleton {
     }
     property var postResponseHook
     property real temperature: Persistent.states?.ai?.temperature ?? 0.5
+    property bool autoExecute: Persistent.states?.ai?.autoExecute ?? false
     property QtObject tokenCount: QtObject {
         property int input: -1
         property int output: -1
@@ -388,6 +389,37 @@ Singleton {
     }
 
     Process {
+        id: getLmStudioModels
+        running: true
+        command: ["bash", "-c", `${Directories.scriptPath}/ai/show-installed-lmstudio-models.sh`.replace(/file:\/\//, "")]
+        stdout: SplitParser {
+            onRead: data => {
+                try {
+                    if (data.length === 0) return;
+                    const dataJson = JSON.parse(data);
+                    dataJson.forEach(model => {
+                        const safeModelName = root.safeModelName("lmstudio-" + model);
+                        root.addModel(safeModelName, {
+                            "name": "LM Studio: " + guessModelName(model),
+                            "icon": guessModelLogo(model),
+                            "description": Translation.tr("Local LM Studio model | %1").arg(model),
+                            "homepage": `http://127.0.0.1:1234`,
+                            "endpoint": "http://127.0.0.1:1234/v1/chat/completions",
+                            "model": model,
+                            "requires_key": false,
+                        })
+                    });
+
+                    root.modelList = Object.keys(root.models);
+
+                } catch (e) {
+                    console.log("Could not fetch LM Studio models:", e);
+                }
+            }
+        }
+    }
+
+    Process {
         id: getDefaultPrompts
         running: true
         command: ["ls", "-1", Directories.defaultAiPrompts]
@@ -565,6 +597,16 @@ Singleton {
         root.addMessage(Translation.tr("Temperature: %1").arg(root.temperature), Ai.interfaceRole);
     }
 
+    function setAutoExecute(enable) {
+        root.autoExecute = enable;
+        Persistent.states.ai.autoExecute = enable;
+        root.addMessage(Translation.tr("Auto-execution of commands: %1").arg(enable ? "ON" : "OFF"), root.interfaceRole);
+    }
+
+    function printAutoExecute() {
+        root.addMessage(Translation.tr("Auto-execution of commands is %1").arg(root.autoExecute ? "ON" : "OFF"), root.interfaceRole);
+    }
+
     function clearMessages() {
         root.messageIDs = [];
         root.messageByID = ({});
@@ -682,6 +724,7 @@ Singleton {
 
                     if (result.functionCall) {
                         requester.message.functionCall = result.functionCall;
+                        requester.message.functionName = result.functionCall.name;
                         root.handleFunctionCall(result.functionCall.name, result.functionCall.args, requester.message);
                     }
                     if (result.tokenUsage) {
@@ -704,7 +747,12 @@ Singleton {
         onExited: (exitCode, exitStatus) => {
             const result = requester.currentStrategy.onRequestFinished(requester.message);
             
-            if (result.finished) {
+            if (result && result.functionCall) {
+                requester.message.functionCall = result.functionCall;
+                requester.message.functionName = result.functionCall.name;
+                root.handleFunctionCall(result.functionCall.name, result.functionCall.args, requester.message);
+            }
+            if (result && result.finished) {
                 requester.markDone();
             } else if (!requester.message.done) {
                 requester.markDone();
@@ -828,6 +876,9 @@ Singleton {
             message.rawContent += contentToAppend;
             message.content += contentToAppend;
             message.functionPending = true; // Use thinking to indicate the command is waiting for approval
+            if (root.autoExecute) {
+                root.approveCommand(message);
+            }
         }
         else root.addMessage(Translation.tr("Unknown function call: %1").arg(name), "assistant");
     }

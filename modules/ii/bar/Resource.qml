@@ -179,11 +179,6 @@ Item {
                 ResourceUsage.toggleCpuBoost()
             }
         }
-
-        StyledToolTip {
-            visible: (root.isCpu && ResourceUsage.hasBoostControl) && parent.containsMouse
-            text: ResourceUsage.cpuBoostEnabled ? Translation.tr("CPU Turbo Boost: Enabled\nClick to disable") : Translation.tr("CPU Turbo Boost: Disabled\nClick to enable")
-        }
     }
 
     Behavior on implicitWidth {

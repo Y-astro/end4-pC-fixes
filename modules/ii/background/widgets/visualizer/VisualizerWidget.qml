@@ -72,10 +72,14 @@ AbstractBackgroundWidget {
     implicitHeight: maxBarHeight + 20
 
     x: 0
-    y: screenHeight - implicitHeight
+    y: 0
+    width: screenWidth
+    height: screenHeight
+    z: 1
     draggable: false
 
     Row {
+        id: barsRow
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: root.barSpacing

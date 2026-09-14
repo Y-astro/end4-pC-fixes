@@ -32,6 +32,7 @@ Singleton {
     property list<real> swapUsageHistory: []
 
     property real cpuTemp: 0
+    property real gpuTemp: 0
 
     property real diskTotal: 1
     property real diskUsed: 0
@@ -139,6 +140,20 @@ Singleton {
     }
 
     Process {
+        id: gpuTempProc
+        running: true
+        command: ["bash", "-c", "if command -v nvidia-smi &>/dev/null; then t=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -d ' '); [ -n \"$t\" ] && echo \"$t\" && exit 0; fi; for h in /sys/class/hwmon/hwmon*; do [ -d \"$h\" ] || continue; name=$(cat \"$h/name\" 2>/dev/null); case \"$name\" in amdgpu|nouveau|i915|xe) for l in \"$h\"/temp*_input; do [ -f \"$l\" ] && cat \"$l\" 2>/dev/null && exit 0; done;; esac; done; sensors 2>/dev/null | grep -iE 'GPU|edge|junction' | grep -oP '\\+\\K[0-9.]+(?=°C)' | head -1"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const raw = parseFloat(text.trim());
+                if (!isNaN(raw) && raw > 0) {
+                    root.gpuTemp = raw > 200 ? Math.round(raw / 100) / 10 : Math.round(raw);
+                }
+            }
+        }
+    }
+
+    Process {
         id: diskProc
         command: ["df", "-k", "/"]
         stdout: StdioCollector {
@@ -207,6 +222,9 @@ Singleton {
 
             diskProc.running = false
             diskProc.running = true
+
+            gpuTempProc.running = false
+            gpuTempProc.running = true
 
             const textMeminfo = fileMeminfo.text()
             memoryTotal = Number(textMeminfo.match(/MemTotal: *(\d+)/)?.[1] ?? 1)

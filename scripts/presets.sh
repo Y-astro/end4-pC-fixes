@@ -125,6 +125,10 @@ case "$action" in
             echo "Error: preset not found: $name" >&2
             exit 1
         fi
+        if [ ! -s "$preset_file" ]; then
+            echo "Error: preset file is empty: $name" >&2
+            exit 1
+        fi
         # Filter preset input before merge so blacklisted keys never overwrite local config
         tmp=$(mktemp)
         jq "$BLACKLIST_FILTER" "$preset_file" > "$tmp"

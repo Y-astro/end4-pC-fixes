@@ -91,6 +91,136 @@ AbstractBackgroundWidget {
         }
     }
 
+    component TempStatCard: Rectangle {
+        id: tempCard
+        property color bgColor: Appearance.colors.colTertiaryContainer
+        property color shapeColor: Appearance.colors.colTertiary
+
+        implicitWidth: root.cardWidth
+        implicitHeight: root.cardHeight
+        radius: Appearance.rounding?.verylarge ?? 30
+        color: tempCard.bgColor
+
+        StyledRectangularShadow {
+            target: tempCard
+            z: -2
+        }
+
+        FastBlurred {
+            anchors.fill: parent
+            blurSource: root.wallpaperItem
+            cardRadius: tempCard.radius
+            tint: Appearance.colors.colLayer1
+            tintOpacity: 0.55
+            trackX: tempCard.x + root.x
+            trackY: tempCard.y + root.y
+            visible: Config.options.background.widgets.blurWidgets 
+        }
+
+        ColumnLayout {
+            anchors {
+                fill: parent
+                margins: 14
+            }
+            spacing: -4
+
+            CustomIcon {
+                Layout.alignment: Qt.AlignRight
+                implicitWidth: 34
+                implicitHeight: 34
+                width: 34
+                height: 34
+                source: "thermal-chip-symbolic.svg"
+                colorize: true
+                color: tempCard.shapeColor
+            }
+
+            Item { Layout.fillHeight: true }
+
+            RowLayout {
+                spacing: 0
+                Layout.fillWidth: true
+
+                ColumnLayout {
+                    spacing: -4
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                        text: (ResourceUsage.cpuTemp > 0 ? Math.round(ResourceUsage.cpuTemp) : "--") + "°C"
+                        font.pixelSize: Appearance.font.pixelSize.larger
+                        font.weight: Font.Bold
+                        fontSizeMode: Text.Fit
+                        minimumPixelSize: 12
+                        color: Appearance.colors.colOnPrimaryContainer
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                        text: "CPU"
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnPrimaryContainer
+                        opacity: 0.6
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: -4
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.leftMargin: 3
+                    Layout.rightMargin: 3
+
+                    StyledText {
+                        Layout.alignment: Qt.AlignHCenter
+                        horizontalAlignment: Text.AlignHCenter
+                        text: "|"
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnPrimaryContainer
+                        opacity: 0.4
+                    }
+
+                    StyledText {
+                        Layout.alignment: Qt.AlignHCenter
+                        horizontalAlignment: Text.AlignHCenter
+                        text: "|"
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnPrimaryContainer
+                        opacity: 0.4
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: -4
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                        text: (ResourceUsage.gpuTemp > 0 ? Math.round(ResourceUsage.gpuTemp) : "--") + "°C"
+                        font.pixelSize: Appearance.font.pixelSize.larger
+                        font.weight: Font.Bold
+                        fontSizeMode: Text.Fit
+                        minimumPixelSize: 12
+                        color: Appearance.colors.colOnPrimaryContainer
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                        text: "GPU"
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnPrimaryContainer
+                        opacity: 0.6
+                    }
+                }
+            }
+        }
+    }
+
     Grid {
         id: row
         columns: root.isVertical ? 1 : 3
@@ -115,13 +245,7 @@ AbstractBackgroundWidget {
             bgColor: Appearance.colors.colSecondaryContainer
             shapeColor: Appearance.colors.colSecondary
         }
-        StatCard {
-            icon: root.hasBattery ? "battery_full" : "storage"
-            value: root.hasBattery
-                ? Math.round(Battery.percentage * 100) + "%"
-                : Math.round(ResourceUsage.diskUsedPercentage * 100) + "%"
-            label: root.hasBattery ? "Battery" : "Disk"
-            shape: MaterialShape.Shape.Cookie12Sided
+        TempStatCard {
             bgColor: Appearance.colors.colTertiaryContainer
             shapeColor: Appearance.colors.colTertiary
         }

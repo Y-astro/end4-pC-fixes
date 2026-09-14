@@ -77,6 +77,8 @@ AbstractBackgroundWidget {
     height: screenHeight
     z: 1
     draggable: false
+    acceptedButtons: Qt.NoButton
+    hoverEnabled: false
 
     Row {
         id: barsRow

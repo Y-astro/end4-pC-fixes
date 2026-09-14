@@ -207,68 +207,82 @@ Variants {
                 NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
             }
 
-            Image {
-                id: previousWallpaper
+            Item {
+                id: wallpaperSurface
                 anchors.fill: parent
-                fillMode: Image.PreserveAspectCrop
-                cache: true
-                mipmap: true
-                smooth: true
-                layer.enabled: true
-                visible: !bgRoot.videoRevealed
-                opacity: bgRoot.videoRevealed ? 0 : 1
-            }
 
-            StyledImage {
-                id: wallpaper
-                anchors.fill: parent
-                fillMode: Image.PreserveAspectCrop
-                cache: true
-                smooth: true
-                mipmap: true
-                asynchronous: true
-                layer.enabled: bgRoot.wallpaperIsVideo ? false : true
-                visible: !blurLoader.active && !bgRoot.videoRevealed
-                    && (bgRoot.wallpaperAnimation === "" || bgRoot.transitionProgress >= 1.0)
-                    && !centeredWallpaper.centeredHidesFullWallpaper
-                opacity: centeredWallpaper.centeredFullWallpaperOpacity()
-                onStatusChanged: {
-                    if (status === Image.Ready && bgRoot.transitionPending) {
-                        bgRoot.transitionPending = false
-                        bgRoot.transitionProgress = 0.0
-                        transitionAnim.restart()
+                Image {
+                    id: previousWallpaper
+                    anchors.fill: parent
+                    fillMode: Image.PreserveAspectCrop
+                    cache: true
+                    mipmap: true
+                    smooth: true
+                    layer.enabled: true
+                    visible: !bgRoot.videoRevealed
+                    opacity: bgRoot.videoRevealed ? 0 : 1
+                }
+
+                StyledImage {
+                    id: wallpaper
+                    anchors.fill: parent
+                    fillMode: Image.PreserveAspectCrop
+                    cache: true
+                    smooth: true
+                    mipmap: true
+                    asynchronous: true
+                    layer.enabled: bgRoot.wallpaperIsVideo ? false : true
+                    visible: !blurLoader.active && !bgRoot.videoRevealed
+                        && (bgRoot.wallpaperAnimation === "" || bgRoot.transitionProgress >= 1.0)
+                        && !centeredWallpaper.centeredHidesFullWallpaper
+                    opacity: centeredWallpaper.centeredFullWallpaperOpacity()
+                    onStatusChanged: {
+                        if (status === Image.Ready && bgRoot.transitionPending) {
+                            bgRoot.transitionPending = false
+                            bgRoot.transitionProgress = 0.0
+                            transitionAnim.restart()
+                        }
                     }
                 }
-            }
 
-            ShaderEffect {
-                id: transitionEffect
-                anchors.fill: parent
-                visible: !blurLoader.active && bgRoot.wallpaperAnimation !== "" && !centeredWallpaper.centeredShapeActive && !bgRoot.videoRevealed
-                    && bgRoot.transitionProgress < 1.0
+                ShaderEffect {
+                    id: transitionEffect
+                    anchors.fill: parent
+                    visible: !blurLoader.active && bgRoot.wallpaperAnimation !== "" && !centeredWallpaper.centeredShapeActive && !bgRoot.videoRevealed
+                        && bgRoot.transitionProgress < 1.0
 
-                property var fromImage: previousWallpaper
-                property var toImage: wallpaper
-                property var source1: previousWallpaper
-                property var source2: wallpaper
-                property real time: 0.0
-                property real progress: bgRoot.transitionProgress
-                property real aspectX: width / height
-                property real aspectY: 1.0
-                property vector2d aspectRatio: Qt.vector2d(aspectX, aspectY)
-                property vector2d origin: Qt.vector2d(0.5, 0.5)
+                    property var fromImage: previousWallpaper
+                    property var toImage: wallpaper
+                    property var source1: previousWallpaper
+                    property var source2: wallpaper
+                    property real time: 0.0
+                    property real progress: bgRoot.transitionProgress
+                    property real aspectX: width / height
+                    property real aspectY: 1.0
+                    property vector2d aspectRatio: Qt.vector2d(aspectX, aspectY)
+                    property vector2d origin: Qt.vector2d(0.5, 0.5)
 
-                fragmentShader: bgRoot.wallpaperAnimation !== ""
-                    ? Qt.resolvedUrl(`shaders/${bgRoot.currentShader}.frag.qsb`)
-                    : ""
+                    fragmentShader: bgRoot.wallpaperAnimation !== ""
+                        ? Qt.resolvedUrl(`shaders/${bgRoot.currentShader}.frag.qsb`)
+                        : ""
 
-                Timer {
-                    interval: 16
-                    repeat: true
-                    running: transitionEffect.visible
-                    onTriggered: transitionEffect.time += interval / 1000.0
+                    Timer {
+                        interval: 16
+                        repeat: true
+                        running: transitionEffect.visible
+                        onTriggered: transitionEffect.time += interval / 1000.0
+                    }
+                    onVisibleChanged: if (!visible) transitionEffect.time = 0.0
                 }
-                onVisibleChanged: if (!visible) transitionEffect.time = 0.0
+
+                /* Centered Wallpaper */
+                CenteredWallpaper {
+                    id: centeredWallpaper
+                    anchors.fill: parent
+                    screen: bgRoot.screen
+                    wallpaperPath: bgRoot.wallpaperPath
+                    wallpaperIsVideo: bgRoot.wallpaperIsVideo
+                }
             }
 
             Loader {
@@ -342,15 +356,6 @@ Variants {
                 }
             }
 
-            /* Centered Wallpaper */
-            CenteredWallpaper {
-                id: centeredWallpaper
-                anchors.fill: parent
-                screen: bgRoot.screen
-                wallpaperPath: bgRoot.wallpaperPath
-                wallpaperIsVideo: bgRoot.wallpaperIsVideo
-            }
-
             /* Wallpaper Drop Area */
             WallpaperDropArea {
                 anchors.fill: parent
@@ -389,7 +394,7 @@ Variants {
 
                 WidgetsLoader {
                     screen: bgRoot.screen
-                    wallpaperItem: wallpaper
+                    wallpaperItem: wallpaperSurface
                     wallpaperSafetyTriggered: bgRoot.wallpaperSafetyTriggered
                 }
             }

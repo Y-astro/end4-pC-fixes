@@ -6,6 +6,7 @@ import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.widgets.widgetCanvas
 import qs.modules.common.functions as CF
+import qs.modules.ii.background.widgets.visualizer
 import QtQuick
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
@@ -282,6 +283,25 @@ Variants {
                     screen: bgRoot.screen
                     wallpaperPath: bgRoot.wallpaperPath
                     wallpaperIsVideo: bgRoot.wallpaperIsVideo
+                }
+
+                /* Background Visualizer */
+                Loader {
+                    id: visualizerLoader
+                    z: 1
+                    active: (Config.options.background.widgets.visualizer?.enable ?? false)
+                        && (Config.options.background.screenList.length === 0 || Config.options.background.screenList.includes(bgRoot.screen.name))
+                    visible: active && (!GlobalStates.screenLocked || Config.options.lock.showWidgets)
+                    anchors.fill: parent
+                    sourceComponent: VisualizerWidget {
+                        showSelectionBorder: false
+                        screenWidth: bgRoot.screen.width
+                        screenHeight: bgRoot.screen.height
+                        scaledScreenWidth: bgRoot.screen.width
+                        scaledScreenHeight: bgRoot.screen.height
+                        wallpaperScale: 1
+                        pinnedBottom: true
+                    }
                 }
             }
 

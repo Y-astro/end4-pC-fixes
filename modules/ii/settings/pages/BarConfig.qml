@@ -590,6 +590,7 @@ ContentPage {
                     options: [
                         { displayName: Translation.tr("Dots"),  icon: "radio_button_checked",   value: "dot" },
                         { displayName: Translation.tr("Icons"), icon: "interests",              value: "icon" },
+                        { displayName: Translation.tr("Pacman"), icon: "sports_esports",        value: "pacman" },
                     ]
                 }
                 ConfigSwitch {

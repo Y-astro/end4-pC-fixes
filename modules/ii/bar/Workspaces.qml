@@ -31,6 +31,108 @@ ButtonMouseArea {
     property int workspaceIndexInGroup: wsModel.activeVisibleIndex
     property real specialTextSize: workspaceButtonWidth * 0.5
 
+    readonly property bool isPacmanStyle: (Config.options?.bar.workspaces.indicatorStyle ?? "dot") === "pacman"
+
+    // Pacman travel state
+    property real pacmanTravelPos: 0
+    property real pacmanTravelFromPos: 0
+    property real pacmanTravelTargetPos: 0
+    property int pacmanTravelDirection: 1
+    property int pacmanFacingDirection: 1
+    property int pacmanTravelSteps: 1
+    property bool pacmanTraveling: false
+    property real pacmanMouthClosure: 0
+    property real pacmanEatProgress: 0
+    property int pacmanTargetWorkspaceId: -1
+    property int pacmanSourceWorkspaceId: -1
+    property int pacmanLastFocusedWorkspaceId: -1
+
+    readonly property int pacmanTravelDuration: Math.min(720, 280 + pacmanTravelSteps * 90)
+    readonly property int pacmanBiteCount: Math.max(3, Math.min(6, pacmanTravelSteps + 2))
+    readonly property int pacmanBiteHalfDuration: Math.max(50, Math.round(pacmanTravelDuration / (pacmanBiteCount * 2)))
+    readonly property real pacmanMaxMouthClosure: 0.82
+    readonly property int pacmanEatDuration: 220
+    readonly property int pacmanEatLeadIn: Math.max(0, pacmanTravelDuration - pacmanEatDuration)
+
+    function pacmanCellIndex(id) {
+        if (!wsModel.visibleWorkspaces) return -1;
+        for (let i = 0; i < wsModel.visibleCount; i++) {
+            if (wsModel.visibleWorkspaces[i]?.id === id) return i;
+        }
+        return -1;
+    }
+    function pacmanCenterPos(index) {
+        return (index + 0.5) * root.workspaceButtonWidth;
+    }
+    function finishPacmanTravel() {
+        pacmanTraveling = false;
+        pacmanMouthClosure = 0;
+        pacmanEatProgress = 0;
+        pacmanTargetWorkspaceId = -1;
+    }
+    function resetPacmanTravel() {
+        pacmanTravel.stop();
+        finishPacmanTravel();
+        pacmanLastFocusedWorkspaceId = wsModel.activeNumber;
+    }
+    function beginPacmanTravel(sourceId, targetId) {
+        if (!root.isPacmanStyle || wsModel.activeNumber !== targetId) {
+            resetPacmanTravel();
+            return;
+        }
+        var sourceIndex = pacmanCellIndex(sourceId);
+        var targetIndex = pacmanCellIndex(targetId);
+        if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+            finishPacmanTravel();
+            return;
+        }
+        var targetPos = pacmanCenterPos(targetIndex);
+        var sourcePos = pacmanTraveling ? pacmanTravelPos : pacmanCenterPos(sourceIndex);
+
+        pacmanTravel.stop();
+        pacmanTravelFromPos = sourcePos;
+        pacmanTravelTargetPos = targetPos;
+        pacmanTravelPos = sourcePos;
+        pacmanTravelDirection = targetPos >= sourcePos ? 1 : -1;
+        pacmanFacingDirection = pacmanTravelDirection;
+        pacmanTravelSteps = Math.max(1, Math.abs(targetIndex - sourceIndex));
+        pacmanTargetWorkspaceId = targetId;
+        pacmanSourceWorkspaceId = sourceId;
+        pacmanEatProgress = 0;
+        pacmanMouthClosure = 0;
+        pacmanTraveling = true;
+        pacmanTravel.restart();
+    }
+    function observePacmanFocus() {
+        var targetId = wsModel.activeNumber;
+        if (targetId < 1) return;
+        if (!root.isPacmanStyle || pacmanLastFocusedWorkspaceId < 1) {
+            resetPacmanTravel();
+            pacmanLastFocusedWorkspaceId = targetId;
+            return;
+        }
+        if (targetId === pacmanLastFocusedWorkspaceId) return;
+        var sourceId = pacmanLastFocusedWorkspaceId;
+        pacmanLastFocusedWorkspaceId = targetId;
+        Qt.callLater(function() { root.beginPacmanTravel(sourceId, targetId); });
+    }
+
+    onIsPacmanStyleChanged: {
+        root.resetPacmanTravel();
+        pacmanLastFocusedWorkspaceId = wsModel.activeNumber;
+    }
+
+    Component.onCompleted: {
+        pacmanLastFocusedWorkspaceId = wsModel.activeNumber;
+    }
+
+    Connections {
+        target: wsModel
+        function onActiveNumberChanged() {
+            root.observePacmanFocus();
+        }
+    }
+
     Layout.alignment: vertical ? Qt.AlignHCenter : Qt.AlignVCenter
     Layout.fillWidth: vertical
     Layout.fillHeight: !vertical
@@ -149,6 +251,7 @@ ButtonMouseArea {
             implicitHeight: occupiedIndicators.implicitHeight
             source: occupiedIndicatorsBg
             maskSource: occupiedIndicators
+            visible: !root.isPacmanStyle
         }
 
         /////////////////// Active indicator ///////////////////
@@ -158,6 +261,7 @@ ButtonMouseArea {
             z: 2
 
             index: wsModel.activeVisibleIndex
+            visible: !root.isPacmanStyle
         }
 
         /////////////////// Hover ///////////////////
@@ -166,6 +270,7 @@ ButtonMouseArea {
             z: 3
             index: root.containsMouse ? root.hoverIndex : wsModel.activeVisibleIndex
             color: "transparent"
+            visible: !root.isPacmanStyle
             StateOverlay {
                 id: hoverOverlay
                 anchors.fill: interactionIndicator.indicatorRectangle
@@ -181,7 +286,7 @@ ButtonMouseArea {
         WorkspaceLayout {
             id: numbersGrid
             z: 4
-            layer.enabled: true // For the masking
+            layer.enabled: !root.isPacmanStyle // For the masking
 
             Repeater {
                 model: wsModel.visibleCount
@@ -200,12 +305,14 @@ ButtonMouseArea {
 
             maskThresholdMin: 0.5
             maskSpreadAtMin: 1
+            visible: !root.isPacmanStyle
         }
 
         /////////////////// App icons ///////////////////
         WorkspaceLayout {
             id: appsGrid
             z: 6
+            visible: !root.isPacmanStyle
 
             Repeater {
                 model: wsModel.visibleCount
@@ -277,6 +384,117 @@ ButtonMouseArea {
                 }
             }
         }
+
+        /////////////////// Pacman Traveling Runner ///////////////////
+        Item {
+            id: pacmanRunner
+            visible: root.isPacmanStyle && root.pacmanTraveling
+            z: 10
+            x: !root.vertical ? Math.round(root.pacmanTravelPos - width / 2) : Math.round((parent.width - width) / 2)
+            y: root.vertical ? Math.round(root.pacmanTravelPos - height / 2) : Math.round((parent.height - height) / 2)
+            width: root.workspaceButtonWidth
+            height: root.workspaceButtonWidth
+
+            Item {
+                id: pacmanRunnerVisual
+                anchors.fill: parent
+                transform: Scale {
+                    origin.x: pacmanRunnerVisual.width / 2
+                    origin.y: pacmanRunnerVisual.height / 2
+                    xScale: !root.vertical ? root.pacmanTravelDirection : 1
+                    yScale: root.vertical ? root.pacmanTravelDirection : 1
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: String.fromCodePoint(0xF0BAF)
+                    color: Appearance.colors.colPrimary
+                    font.family: Appearance.font.family.iconNerd || "JetBrainsMono Nerd Font"
+                    font.pixelSize: Math.round(root.workspaceButtonWidth * 0.58)
+                    font.weight: Font.Bold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    renderType: Text.NativeRendering
+                }
+
+                Canvas {
+                    id: pacmanMouthFill
+                    anchors.centerIn: parent
+                    width: Math.round(root.workspaceButtonWidth * 0.65)
+                    height: width
+                    property real closure: root.pacmanMouthClosure
+                    property color fillColor: Appearance.colors.colPrimary
+
+                    onClosureChanged: requestPaint()
+                    onFillColorChanged: requestPaint()
+                    onPaint: {
+                        var context = getContext("2d")
+                        var centerX = width / 2
+                        var centerY = height / 2
+                        var radius = Math.min(width, height) * 0.40
+                        var angle = 0.70 * Math.max(0, Math.min(1, closure))
+                        context.clearRect(0, 0, width, height)
+                        if (angle <= 0.001) return
+                        context.fillStyle = String(fillColor)
+                        context.beginPath()
+                        context.moveTo(centerX, centerY)
+                        context.arc(centerX, centerY, radius, -angle, angle, false)
+                        context.closePath()
+                        context.fill()
+                    }
+                }
+            }
+        }
+    }
+
+    SequentialAnimation {
+        id: pacmanTravel
+        running: false
+
+        ParallelAnimation {
+            NumberAnimation {
+                target: root
+                property: "pacmanTravelPos"
+                from: root.pacmanTravelFromPos
+                to: root.pacmanTravelTargetPos
+                duration: root.pacmanTravelDuration
+                easing.type: Easing.InOutSine
+            }
+
+            SequentialAnimation {
+                loops: root.pacmanBiteCount
+                NumberAnimation {
+                    target: root
+                    property: "pacmanMouthClosure"
+                    from: 0
+                    to: root.pacmanMaxMouthClosure
+                    duration: root.pacmanBiteHalfDuration
+                    easing.type: Easing.InOutSine
+                }
+                NumberAnimation {
+                    target: root
+                    property: "pacmanMouthClosure"
+                    from: root.pacmanMaxMouthClosure
+                    to: 0
+                    duration: root.pacmanBiteHalfDuration
+                    easing.type: Easing.InOutSine
+                }
+            }
+
+            SequentialAnimation {
+                PauseAnimation { duration: root.pacmanEatLeadIn }
+                NumberAnimation {
+                    target: root
+                    property: "pacmanEatProgress"
+                    from: 0
+                    to: 1
+                    duration: root.pacmanEatDuration
+                    easing.type: Easing.InCubic
+                }
+            }
+        }
+
+        ScriptAction { script: root.finishPacmanTravel() }
     }
 
     FadeLoader {
@@ -366,9 +584,13 @@ ButtonMouseArea {
         id: wsNum
         property var wsData: wsModel.visibleWorkspaces[index]
         property int wsId: wsData ? wsData.id : (index + 1)
+        property bool isFocused: wsNum.wsId === wsModel.activeNumber
+        property bool isOccupied: (wsData ? wsData.occupied : false) && wsNum.wsId !== wsModel.fakeWorkspace
         property bool hasBiggestWindow: !!(wsData ? wsData.biggestWindow : null)
         property color contentColor: ((wsData ? wsData.occupied : false) && wsId !== wsModel.fakeWorkspace) ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnLayer1Inactive
         property bool showingNumbers: {
+            if (root.isPacmanStyle)
+                return false;
             if (root.superPressAndHeld)
                 return true;
             if (GlobalStates.screenLocked)
@@ -383,7 +605,28 @@ ButtonMouseArea {
             anchors.centerIn: parent
             Loader {
                 anchors.centerIn: parent
-                sourceComponent: (Config.options?.bar.workspaces.indicatorStyle ?? "dot") === "icon" ? iconComponent : dotComponent
+                sourceComponent: root.isPacmanStyle ? pacmanComponent : ((Config.options?.bar.workspaces.indicatorStyle ?? "dot") === "icon" ? iconComponent : dotComponent)
+
+                Component {
+                    id: pacmanComponent
+                    PacmanMarker {
+                        anchors.centerIn: parent
+                        glyphSize: Math.round(root.workspaceButtonWidth * 0.58)
+                        pelletSize: Math.round(root.workspaceButtonWidth * 0.20)
+                        focused: wsNum.isFocused && !(root.pacmanTraveling && wsNum.wsId === root.pacmanTargetWorkspaceId)
+                        occupied: wsNum.isOccupied
+                        hovered: root.containsMouse && root.hoverIndex === wsNum.index
+                        facingDirection: root.pacmanFacingDirection
+                        eatProgress: (root.pacmanTraveling && wsNum.wsId === root.pacmanTargetWorkspaceId)
+                            ? root.pacmanEatProgress : 0
+                        eatDirection: root.pacmanTravelDirection
+                        isVertical: root.vertical
+                        activeColor: Appearance.colors.colPrimary
+                        occupiedColor: Appearance.colors.colPrimary
+                        emptyColor: Appearance.colors.colPrimary
+                        hoverColor: Appearance.colors.colPrimaryHover
+                    }
+                }
 
                 Component {
                     id: dotComponent

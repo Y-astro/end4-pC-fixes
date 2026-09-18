@@ -32,6 +32,8 @@ Item {
 
     Repeater {
         model: [
+            { key: "visualizer" },
+            { key: "visualizer2" },
             { key: "customImage" },
             { key: "calendar" },
             { key: "weather" },
@@ -53,6 +55,8 @@ Item {
             property bool enableLoading: true
 
             shown: Config.options.background.widgets[loaderDelegate.modelData.key].enable
+                && (loaderDelegate.modelData.key !== "visualizer" || (Config.options.background.widgets.visualizer?.style ?? "bars") === "ring")
+                && (loaderDelegate.modelData.key !== "visualizer2" || (Config.options.background.widgets.visualizer2?.style ?? "ring") === "ring")
                 && loaderDelegate.enableLoading
                 && (loaderDelegate.modelData.alwaysOnLock
                     ? (GlobalStates.screenLocked || root.onThisScreen)
@@ -60,6 +64,8 @@ Item {
 
             sourceComponent: {
                 switch (loaderDelegate.modelData.key) {
+                    case "visualizer":  return visualizerRingComp
+                    case "visualizer2": return visualizer2RingComp
                     case "customImage": return customImageComp
                     case "calendar":    return calendarComp
                     case "weather":     return weatherComp
@@ -90,6 +96,30 @@ Item {
                 interval: 500
                 onTriggered: loaderDelegate.enableLoading = true
             }
+        }
+    }
+    Component {
+        id: visualizerRingComp
+        VisualizerWidget {
+            widgetConfigName: "visualizer"
+            screenWidth: root.screen.width
+            screenHeight: root.screen.height
+            scaledScreenWidth: root.screen.width
+            scaledScreenHeight: root.screen.height
+            wallpaperScale: 1
+            wallpaperItem: root.wallpaperItem
+        }
+    }
+    Component {
+        id: visualizer2RingComp
+        VisualizerWidget {
+            widgetConfigName: "visualizer2"
+            screenWidth: root.screen.width
+            screenHeight: root.screen.height
+            scaledScreenWidth: root.screen.width
+            scaledScreenHeight: root.screen.height
+            wallpaperScale: 1
+            wallpaperItem: root.wallpaperItem
         }
     }
     Component {

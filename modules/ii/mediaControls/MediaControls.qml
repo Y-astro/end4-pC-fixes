@@ -89,8 +89,9 @@ Scope {
                 (Config.options.bar.dynamicIsland.visualizerStyle === "wave" ||
                 (Config.options.bar.dynamicIsland.visualizerStyle === "dots" && !Config.options.bar.dynamicIsland.showMediaControls))) ||
             Config.options.bar.layouts.rightLayout.includes("visualizer") ||
-            Config.options.background.widgets.visualizer.enable)
-            && MprisController.activePlayer !== null
+            Config.options.background.widgets.visualizer.enable ||
+            Config.options.background.widgets.visualizer2.enable)
+            && (MprisController.activePlayer !== null || Config.options.background.widgets.visualizer.enable || Config.options.background.widgets.visualizer2.enable)
         onRunningChanged: {
             if (!cavaProc.running) {
                 GlobalStates.visualizerPoints = [];

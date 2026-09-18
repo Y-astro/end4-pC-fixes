@@ -285,15 +285,38 @@ Variants {
                     wallpaperIsVideo: bgRoot.wallpaperIsVideo
                 }
 
-                /* Background Visualizer */
+                /* Background Visualizer 1 */
                 Loader {
                     id: visualizerLoader
                     z: 1
                     active: (Config.options.background.widgets.visualizer?.enable ?? false)
                         && (Config.options.background.screenList.length === 0 || Config.options.background.screenList.includes(bgRoot.screen.name))
+                        && (Config.options.background.widgets.visualizer?.style ?? "bars") !== "ring"
                     visible: active && (!GlobalStates.screenLocked || Config.options.lock.showWidgets)
                     anchors.fill: parent
                     sourceComponent: VisualizerWidget {
+                        widgetConfigName: "visualizer"
+                        showSelectionBorder: false
+                        screenWidth: bgRoot.screen.width
+                        screenHeight: bgRoot.screen.height
+                        scaledScreenWidth: bgRoot.screen.width
+                        scaledScreenHeight: bgRoot.screen.height
+                        wallpaperScale: 1
+                        pinnedBottom: true
+                    }
+                }
+
+                /* Background Visualizer 2 */
+                Loader {
+                    id: visualizer2Loader
+                    z: 1
+                    active: (Config.options.background.widgets.visualizer2?.enable ?? false)
+                        && (Config.options.background.screenList.length === 0 || Config.options.background.screenList.includes(bgRoot.screen.name))
+                        && (Config.options.background.widgets.visualizer2?.style ?? "ring") !== "ring"
+                    visible: active && (!GlobalStates.screenLocked || Config.options.lock.showWidgets)
+                    anchors.fill: parent
+                    sourceComponent: VisualizerWidget {
+                        widgetConfigName: "visualizer2"
                         showSelectionBorder: false
                         screenWidth: bgRoot.screen.width
                         screenHeight: bgRoot.screen.height

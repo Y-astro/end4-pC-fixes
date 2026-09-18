@@ -344,7 +344,25 @@ Singleton {
                         property string placementStrategy: "free"
                         property real x: 0
                         property real y: 0
-                        property real z: -1000
+                        property real z: 1
+                        property string style: "bars" // "bars", "mirror", "aurora", "ring", "dots"
+                        property string colorSource: "theme" // "theme", "cover"
+                        property real sensitivity: 1
+                        property int height: 260 // bars, mirror, aurora, dots
+                        property int ringSize: 380
+                    }
+
+                    property JsonObject visualizer2: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 0
+                        property real y: 0
+                        property real z: 15
+                        property string style: "ring" // "bars", "mirror", "aurora", "ring", "dots"
+                        property string colorSource: "theme" // "theme", "cover"
+                        property real sensitivity: 1
+                        property int height: 260 // bars, mirror, aurora, dots
+                        property int ringSize: 380
                     }
 
                     property JsonObject customImage: JsonObject {
@@ -387,6 +405,20 @@ Singleton {
                         property real y: 500
                         property real z: 0
                         property string sizeMode: "1x3" 
+                    }
+
+                    property JsonObject customText: JsonObject {
+                        property bool enable: false
+                        property string placementStrategy: "free"
+                        property real x: 400
+                        property real y: 300
+                        property real z: 0
+                        property string content: "Hello world"
+                        property string fontFamily: "Caveat"
+                        property int fontSize: 72
+                        property string color: "" // "" = automatic, otherwise an Appearance color name
+                        property string alignment: "center" // "left", "center", "right"
+                        property bool shadow: true
                     }
                 }
                 property list<string> screenList: [] 
@@ -480,7 +512,7 @@ Singleton {
                     property int shown: 10
                     property bool showAppIcons: false
                     property bool hideUnused: true
-                    property string indicatorStyle: "dot" // "dot" or "icon"
+                    property string indicatorStyle: "dot" // "dot", "icon", or "pacman"
                     property bool alwaysShowNumbers: true
                     property int showNumberDelay: 300 // milliseconds
                     property list<string> numberMap: ["1", "2"] // Characters to show instead of numbers on workspace indicator

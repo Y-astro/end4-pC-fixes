@@ -1566,12 +1566,12 @@ Singleton {
         root.actionFeedback(enable ? Translation.tr("Phone will stay awake") : Translation.tr("Normal screen timeout"), true)
     }
 
-    /** Turns phone physical display off or resets it via DisplayManager. */
+    /** Controls screen-off preference for scrcpy mirror (scrcpy handles physical panel power). */
     function adbSetScreenOff(off) {
-        Quickshell.execDetached(["bash", "-c",
-            off ? "adb shell cmd display power-off 0 >/dev/null 2>&1" : "adb shell cmd display power-reset 0 >/dev/null 2>&1"
-        ])
-        root.actionFeedback(off ? Translation.tr("Phone screen turned off") : Translation.tr("Phone screen turned on"), true)
+        if (!off) {
+            Quickshell.execDetached(["bash", "-c", "adb shell cmd display power-reset 0 >/dev/null 2>&1 || true"])
+        }
+        root.actionFeedback(off ? Translation.tr("Screen off enabled for mirror") : Translation.tr("Screen off disabled"), true)
     }
 
     /** Enforces 120Hz high refresh rate on the phone (disables ColorOS downclocking). */

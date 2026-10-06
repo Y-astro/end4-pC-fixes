@@ -249,6 +249,9 @@ Singleton {
     function setTurnScreenOff(off: bool): void {
         if (Config.options?.phone?.scrcpy) Config.options.phone.scrcpy.turnScreenOff = off
         KdeConnectService.adbSetScreenOff(off)
+        if (root.mirrorRunning) {
+            root.restartMirror()
+        }
     }
 
     // ─── Failure feedback ─────────────────────────────────────

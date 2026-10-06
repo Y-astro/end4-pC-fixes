@@ -292,14 +292,7 @@ class ScrcpySessionManager:
     # kills this shell with it (detaching does not help), and a loop cut
     # short would leave the panel lit until the connection is back.
     # Timed against /proc/uptime in centiseconds: the phone's shell only has
-    # 32-bit arithmetic, which rules out epoch milliseconds.
-    DARK_UNLOCK = (
-        "input keyevent 224; "
-        "read u _ < /proc/uptime; e=$(( ${u%.*}${u#*.} + 90 )); "
-        "while :; do cmd display power-off 0; read u _ < /proc/uptime; "
-        "[ ${u%.*}${u#*.} -ge $e ] && break; sleep 0.04; done; "
-        "wm dismiss-keyguard"
-    )
+    DARK_UNLOCK = "input keyevent 224; sleep 0.3; wm dismiss-keyguard"
     LIT_UNLOCK = "input keyevent 224; sleep 0.3; wm dismiss-keyguard"
 
     def _adb_shell(self, target_args, script, timeout=6):
@@ -343,7 +336,9 @@ class ScrcpySessionManager:
             % (column, int(height * 0.8), column, int(height * 0.25)))
 
     def _hold_panel_off(self, target_args):
-        self._adb_shell(target_args, "cmd display power-off 0")
+        # Physical panel power is safely managed by scrcpy (--turn-screen-off).
+        # Running cmd display power-off 0 kills SurfaceFlinger frame output and freezes the mirror.
+        pass
 
     def _restore_panel(self, target_args=None):
         """Hand the panel back to the phone after a dark unlock."""

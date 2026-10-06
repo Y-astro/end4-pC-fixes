@@ -146,20 +146,7 @@ Singleton {
             "subPages": ["widgets/DesktopClockWidgetConfig.qml", "widgets/DesktopWeatherWidgetConfig.qml", "widgets/DesktopMediaWidgetConfig.qml", "widgets/DesktopAtAGlanceConfig.qml", "widgets/VisualizerWidgetConfig.qml"],
             "aliases": []
         },
-        {
-            "id": "dynamicIsland",
-            // No notch on a fixed tablet status bar.
-            "families": ["ii", "waffle"],
-            "name": "Dynamic Island",
-            "icon": "water_drop",
-            "component": "modules/settings/configs/DynamicIslandConfig.qml",
-            "subPages": [
-                "widgets/DynamicIslandActivitiesConfig.qml",
-                "features/TeleprompterConfig.qml"
-            ],
-            "searchSources": ["sections/DynamicIslandModeSection.qml", "sections/DynamicIslandActivitiesSection.qml"],
-            "aliases": ["Notch", "Floating notch", "Activity notches", "Island activities", "Earbuds battery", "Weather", "Dynamic Island in bar center"]
-        },
+
         {
             "id": "overlays",
             "name": "Overlays & OSD",
@@ -458,7 +445,7 @@ Singleton {
         {
             "id": "modules",
             "name": "Modules",
-            "pageIds": ["tablet", "sidebars", "dynamicIsland"]
+            "pageIds": ["tablet", "sidebars"]
         },
         {
             "id": "desktopWindows",

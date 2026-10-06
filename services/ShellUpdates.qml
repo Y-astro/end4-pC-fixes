@@ -18,7 +18,7 @@ Singleton {
     id: root
 
     readonly property string setupScript: FileUtils.trimFileProtocol(Directories.home + "/.local/share/ii-p3drovfx/setup-ii-p3drovfx.sh")
-    readonly property string stateDir: FileUtils.trimFileProtocol(Directories.home + "/.config/quickshell/ii")
+    readonly property string stateDir: FileUtils.trimFileProtocol(Quickshell.shellPath(""))
 
     property string activeRemote: ""
     property string activeBranch: "main"

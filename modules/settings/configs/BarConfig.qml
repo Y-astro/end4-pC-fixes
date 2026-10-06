@@ -84,13 +84,6 @@ Item {
                     icon: "style"
                     Layout.fillWidth: true
 
-                    NoticeBox {
-                        Layout.fillWidth: true
-                        visible: ShellModePolicy.barPositionLocked
-                        materialIcon: "lock"
-                        text: Translation.tr("Shell mode is locked to Default while 'Dynamic Island in bar center' is active. The search runs independently of the Dynamic Island in this mode.")
-                    }
-
                     ConfigSelectionArray {
                         id: shellStyleSelector
                         currentValue: Config.options.sidebar.sidebarStyle
@@ -117,21 +110,6 @@ Item {
                     visible: barConfigRoot.autoSwitchNoticeMessage.length > 0
                     materialIcon: "info"
                     text: barConfigRoot.autoSwitchNoticeMessage
-                }
-
-                NoticeBox {
-                    Layout.fillWidth: true
-                    visible: ShellModePolicy.defaultBlockedReasonKey.length > 0
-                    materialIcon: "water_drop"
-                    text: Translation.tr(ShellModePolicy.defaultBlockedReasonKey)
-
-                    ShortcutBox {
-                        targetPageId: "dynamicIsland"
-                        targetSectionTitle: Translation.tr("Floating Dynamic Island")
-                        materialIcon: "arrow_forward"
-                        text: Translation.tr("Go to Dynamic Island settings")
-                        linkText: Translation.tr("Go there")
-                    }
                 }
 
                 NoticeBox {
@@ -170,25 +148,10 @@ Item {
                         text: Translation.tr("Bar position is fixed to Top in Tablet mode.")
                     }
 
-                    NoticeBox {
-                        Layout.fillWidth: true
-                        visible: Config.options.panelFamily !== "tablet" && ShellModePolicy.barPositionLocked
-                        materialIcon: "lock"
-                        text: Translation.tr("Bar position is locked to Top while 'Dynamic Island in bar center' is active. Disable that feature first to change position.")
-                    }
-
                     ConfigSelectionArray {
                         visible: Config.options.panelFamily !== "tablet"
                         currentValue: (Config.options.bar.bottom ? 1 : 0) | (Config.options.bar.vertical ? 2 : 0)
                         onSelected: (newValue) => {
-                            const isVertical = (newValue & 2) !== 0;
-                            const isBottom = (newValue & 1) !== 0;
-                            if (!isVertical && !isBottom && Config.options.bar.floatingNotch.enable) {
-                                barConfigRoot.triggerAutoSwitchNotice(Translation.tr("Floating Dynamic Island is not supported with the bar at the Top. It was automatically disabled."));
-                            }
-                            if (!isVertical && Config.options.bar.cornerStyle === 3 && Config.options.sidebar.sidebarStyle === "connect") {
-                                barConfigRoot.triggerAutoSwitchNotice(Translation.tr("Dynamic Island is only supported in vertical orientation in Connect mode. Shell mode was automatically switched to Default."));
-                            }
                             ShellModePolicy.setBarPosition(newValue);
                         }
                         options: {
@@ -246,12 +209,10 @@ Item {
                     buttonIcon: "visibility_off"
                     text: Translation.tr("Automatically hide")
                     checked: Config.options.bar.autoHide.enable
-                    enabled: !ShellModePolicy.barPositionLocked && !barConfigRoot.islandOwnsTopEdge
+                    enabled: !ShellModePolicy.barPositionLocked
                     onCheckedChanged: Config.options.bar.autoHide.enable = checked
                     StyledToolTip {
-                        text: (ShellModePolicy.barPositionLocked || barConfigRoot.islandOwnsTopEdge)
-                            ? Translation.tr("Auto-hide is locked while the Dynamic Island is active on a horizontal bar; the island has its own auto-hide.")
-                            : Translation.tr("Automatically hide the bar when not in use")
+                        text: Translation.tr("Automatically hide the bar when not in use")
                     }
                 }
 
@@ -354,7 +315,7 @@ Item {
                     buttonIcon: "palette"
                     title: Translation.tr("Appearance & style")
                     description: Translation.tr("Corners, background styles, glow, drop shadows, and brand icon")
-                    summary: (Config.options.bar.cornerStyle === 0 ? "Hug" : Config.options.bar.cornerStyle === 1 ? "Float" : Config.options.bar.cornerStyle === 2 ? "Rect" : "Dynamic Island") + " · " + (Config.options.bar.barBackgroundStyle === 0 ? "Transparent" : Config.options.bar.barBackgroundStyle === 1 ? "Visible" : Config.options.bar.barBackgroundStyle === 2 ? "Adaptive" : "Islands")
+                    summary: (Config.options.bar.cornerStyle === 0 ? "Hug" : Config.options.bar.cornerStyle === 1 ? "Float" : "Rect") + " · " + (Config.options.bar.barBackgroundStyle === 0 ? "Transparent" : Config.options.bar.barBackgroundStyle === 1 ? "Visible" : Config.options.bar.barBackgroundStyle === 2 ? "Adaptive" : "Islands")
                     onClicked: subPageOverlay.open(Qt.resolvedUrl("widgets/BarAppearanceConfig.qml"))
                 }
 

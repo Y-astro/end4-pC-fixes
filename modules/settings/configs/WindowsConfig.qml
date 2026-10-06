@@ -438,22 +438,8 @@ Item {
                 checked: windowsRoot.switcher.enable
                 onCheckedChanged: windowsRoot.switcher.enable = checked
                 StyledToolTip {
-                    text: Translation.tr("With the Dynamic Island on, the island becomes the switcher; otherwise a panel opens on the focused monitor")
+                    text: Translation.tr("A panel opens on the focused monitor with window previews")
                 }
-            }
-
-            // The same choice as the Dynamic Island page's switch, so every switcher setting is here.
-            WindowsChoiceCards {
-                enabled: windowsRoot.switcher.enable
-                opacity: enabled ? 1 : 0.5
-                currentValue: !Config.options.bar.floatingNotch.disableWindowSwitcher
-                onSelected: value => Config.options.bar.floatingNotch.disableWindowSwitcher = !value
-                options: [
-                    { value: true, title: Translation.tr("Island cover flow"), icon: "view_carousel", shape: MaterialShape.Shape.Pill,
-                      summary: Translation.tr("The Dynamic Island grows into live window previews") },
-                    { value: false, title: Translation.tr("Floating panel"), icon: "grid_view", shape: MaterialShape.Shape.Cookie4Sided,
-                      summary: Translation.tr("A grid of windows in the middle of the focused monitor") }
-                ]
             }
 
             // What it lists and shows, as tiles: 4, 2 or 1 per row, never 3 + 1.

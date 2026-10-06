@@ -505,6 +505,7 @@ PanelWindow {
                 }
                 root.navigationHistoryActive = false;
                 SearchRegistry.setSettingsActive(true);
+                SearchRegistry.ensureIndexing();
                 settingsSearchBar.forceFocus();
                 root.consumePendingSettingsPage();
                 Qt.callLater(() => root.beginNavigationSession());
@@ -569,6 +570,7 @@ PanelWindow {
             root.consumePendingSettingsPage();
             Qt.callLater(() => {
                 SearchRegistry.setSettingsActive(true);
+                SearchRegistry.ensureIndexing();
                 root.beginNavigationSession();
             });
         }
@@ -587,16 +589,36 @@ PanelWindow {
             SearchRegistry.setSettingsActive(false);
     }
 
-    function acceptSearch(text) {
+    Timer {
+        id: searchDebounceTimer
+        interval: 250
+        repeat: false
+        onTriggered: {
+            const query = settingsSearchBar.searchInput.text.trim();
+            if (query.length > 0) {
+                if (!SearchRegistry.indexed) {
+                    root.pendingSearchText = query;
+                    SearchRegistry.ensureIndexing();
+                } else {
+                    root.acceptSearch(query, false);
+                }
+            }
+        }
+    }
+
+    function acceptSearch(text, isExplicitSubmit) {
+        if (isExplicitSubmit === undefined) isExplicitSubmit = false;
         const result = SearchRegistry.getDynamicSearchResults(text);
 
         if (result == null || result.length === 0) {
-            settingsSearchBar.shakeNoResults();
-            root.activeSearchQuery = "";
+            if (isExplicitSubmit)
+                settingsSearchBar.shakeNoResults();
+            root.activeSearchQuery = text;
             root.resultsCount = 0;
             root.lastSearchIndex = -1;
-            if (root.currentPage === root.pageIndexById("search")) {
-                root.currentPage = root.previousPage;
+            SearchRegistry.currentSearch = text;
+            if (isExplicitSubmit || root.currentPage === root.pageIndexById("search")) {
+                root.currentPage = root.pageIndexById("search");
             }
             return;
         }
@@ -735,27 +757,25 @@ PanelWindow {
                 resultsCount: root.resultsCount
 
                 onTextChanged: text => {
-                    // Index while the query is being typed: the index is
-                    // dropped whenever Settings closes, and rebuilding it on
-                    // Enter added its whole cost to the first search.
-                    if (text !== "")
+                    if (text.trim() !== "") {
                         SearchRegistry.ensureIndexing();
-                    if (text === "")
+                        searchDebounceTimer.restart();
+                    } else {
+                        searchDebounceTimer.stop();
                         root.pendingSearchText = "";
-                    if (text === "") {
                         if (root.currentPage === root.pageIndexById("search")) {
                             root.currentPage = root.previousPage;
                         }
                         root.activeSearchQuery = "";
                         root.resultsCount = 0;
                         root.lastSearchIndex = -1;
-                        SearchRegistry.clearIndex();
                     }
                 }
 
                 onAccepted: text => {
+                    searchDebounceTimer.stop();
                     if (text.trim() === "") {
-                        root.acceptSearch(text);
+                        root.acceptSearch(text, true);
                         return;
                     }
                     if (!SearchRegistry.indexed) {
@@ -763,7 +783,7 @@ PanelWindow {
                         SearchRegistry.ensureIndexing();
                         return;
                     }
-                    root.acceptSearch(text);
+                    root.acceptSearch(text, true);
                 }
 
                 onCloseRequested: GlobalStates.settingsOpen = false

@@ -136,7 +136,7 @@ Item {
         ContentSection {
             title: Translation.tr("On/off pills")
             icon: "toggle_on"
-            tooltip: Translation.tr("Short pills for switches. Shown by the Dynamic Island and the connected OSD only.")
+            tooltip: Translation.tr("Short pills for switches. Shown by the connected OSD only.")
 
             ColumnLayout {
                 Layout.fillWidth: true

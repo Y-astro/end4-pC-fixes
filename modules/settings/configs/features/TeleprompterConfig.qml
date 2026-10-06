@@ -84,11 +84,6 @@ Item {
             visible: !root.islandOn
             materialIcon: "info"
             text: Translation.tr("The Dynamic Island is off: the teleprompter has nowhere to read. Turn the island on and every control here comes alive.")
-
-            RelatedChip {
-                pageId: "dynamicIsland"
-                label: Translation.tr("Dynamic Island")
-            }
         }
 
         // ── Script and transport ────────────────────────────────────────────

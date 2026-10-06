@@ -42,7 +42,10 @@ Item {
         root._memoResults = null;
         root.indexed = false;
         root.indexing = true;
-        let configRoot = FileUtils.trimFileProtocol(Directories.config) + "/quickshell/ii/";
+        let shellRoot = FileUtils.trimFileProtocol(Quickshell.shellPath(""));
+        if (!shellRoot.endsWith("/"))
+            shellRoot += "/";
+        let configRoot = shellRoot;
         let basePath = configRoot + "modules/settings/configs/";
 
         let files = [];
@@ -85,6 +88,8 @@ Item {
         root.settingsActive = active;
         if (!active) {
             root.clearIndex();
+        } else {
+            root.ensureIndexing();
         }
     }
 
@@ -152,6 +157,7 @@ Item {
         function finishIndexing() {
             root.indexing = false;
             root.indexed = true;
+            console.log("[SearchRegistry] Indexing complete:", root.sections.length, "sections indexed across", files.length, "files");
             path = "";
             files = [];
             pageIds = [];
@@ -175,6 +181,7 @@ Item {
         onLoadFailed: {
             if (currentIndex >= files.length || !root.indexing)
                 return;
+            console.warn("[SearchRegistry] Failed to load file:", pageFile.path);
             currentIndex++;
             if (currentIndex >= files.length) {
                 finishIndexing();

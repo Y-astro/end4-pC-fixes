@@ -113,11 +113,6 @@ ContentPage {
             }
 
             RelatedChip {
-                pageId: "dynamicIsland"
-                label: Translation.tr("Island notch")
-            }
-
-            RelatedChip {
                 pageId: "soundAlerts"
                 label: Translation.tr("Alert sounds")
             }

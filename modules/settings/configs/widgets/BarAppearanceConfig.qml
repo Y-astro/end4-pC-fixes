@@ -68,28 +68,10 @@ Item {
                         text: Translation.tr(ShellModePolicy.floatStyleBlockedReasonKey)
                     }
 
-                    NoticeBox {
-                        Layout.fillWidth: true
-                        visible: ShellModePolicy.barStyleBlockedByCenterInBarReasonKey.length > 0
-                        materialIcon: "lock"
-                        text: Translation.tr(ShellModePolicy.barStyleBlockedByCenterInBarReasonKey)
-
-                        ShortcutBox {
-                            targetPageId: "dynamicIsland"
-                            targetSectionTitle: Translation.tr("Dynamic Island in Bar Center")
-                            materialIcon: "arrow_forward"
-                            text: Translation.tr("Go to Dynamic Island settings")
-                            linkText: Translation.tr("Go there")
-                        }
-                    }
-
                     ConfigSelectionArray {
                         id: cornerStyleSelector
                         currentValue: Config.options.bar.cornerStyle
                         onSelected: (newValue) => {
-                            if (newValue === 3 && !Config.options.bar.vertical && Config.options.sidebar.sidebarStyle === "connect") {
-                                Config.options.sidebar.sidebarStyle = "default";
-                            }
                             Config.options.bar.cornerStyle = newValue;
                         }
                         options: {
@@ -106,29 +88,10 @@ Item {
                                 "displayName": Translation.tr("Rect"),
                                 "icon": "toolbar",
                                 "value": 2
-                            }, {
-                                "displayName": Translation.tr("Dynamic Island"),
-                                "icon": "water_drop",
-                                "value": 3
                             }];
                             if (Config.options.bar.barBackgroundStyle === 3) {
                                 opts[2].enabled = false;
-                                opts[3].enabled = false;
                             }
-                            // Which styles the centred island fits in depends on its
-                            // shell, so the allow-list is ShellModePolicy's to state:
-                            // an edge-attached notch needs Hug or Dynamic Island, an
-                            // island-shaped one drops into Float and Rect as well. The
-                            // `&&` keeps whatever the rules above already refused.
-                            if (ShellModePolicy.centerInBarActive) {
-                                const centred = ShellModePolicy.centerInBarStyles;
-                                opts[1].enabled = opts[1].enabled !== false && centred.indexOf(1) !== -1;
-                                opts[2].enabled = opts[2].enabled !== false && centred.indexOf(2) !== -1;
-                            }
-                            // The tablet family renders no dynamic island at all, so the
-                            // style is not merely disabled here — it is not on offer.
-                            if (PanelFamily.isTablet)
-                                return opts.slice(0, 3);
                             return opts;
                         }
                     }
@@ -144,39 +107,6 @@ Item {
                     }
                     StyledToolTip {
                         text: Translation.tr("Shows a subtle drop shadow behind the bar when floating.")
-                    }
-                }
-
-                ContentSubsectionLabel {
-                    text: Translation.tr("Dynamic Island behavior")
-                    visible: !PanelFamily.isTablet && Config.options.bar.cornerStyle === 3
-                    Layout.topMargin: 4
-                }
-
-                ConfigSwitch {
-                    buttonIcon: "auto_fix"
-                    text: Translation.tr("Auto spacing")
-                    visible: !PanelFamily.isTablet && Config.options.bar.cornerStyle === 3
-                    checked: Config.options.bar.dynamicIslandLoadBalance
-                    onCheckedChanged: {
-                        Config.options.bar.dynamicIslandLoadBalance = checked;
-                    }
-                }
-
-                ConfigSlider {
-                    buttonIcon: "space_bar"
-                    text: Translation.tr("Dynamic Island spacing")
-                    visible: !PanelFamily.isTablet && Config.options.bar.cornerStyle === 3 && !Config.options.bar.dynamicIslandLoadBalance
-                    usePercentTooltip: false
-                    from: Config.options.bar.vertical ? 16 : 48
-                    to: Config.options.bar.vertical ? 100 : 250
-                    stepSize: 1
-                    value: Config.options.bar.vertical ? Config.options.bar.dynamicIslandSpacingVertical : Config.options.bar.dynamicIslandSpacingHorizontal
-                    onValueChanged: {
-                        if (Config.options.bar.vertical)
-                            Config.options.bar.dynamicIslandSpacingVertical = value;
-                        else
-                            Config.options.bar.dynamicIslandSpacingHorizontal = value;
                     }
                 }
 

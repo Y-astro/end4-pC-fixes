@@ -145,9 +145,6 @@ Item { // Wrapper
                 Layout.rightMargin: 4
                 Layout.topMargin: verticalPadding
                 Layout.bottomMargin: verticalPadding
-                Synchronizer on searchingText {
-                    property alias source: root.searchingText
-                }
             }
 
             Rectangle {

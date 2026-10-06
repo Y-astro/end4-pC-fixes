@@ -13,7 +13,7 @@ RowLayout {
     spacing: 6
     property bool animateWidth: false
     property alias searchInput: searchInput
-    property string searchingText
+    property string searchingText: LauncherSearch.query
 
     function forceFocus() {
         searchInput.forceActiveFocus();

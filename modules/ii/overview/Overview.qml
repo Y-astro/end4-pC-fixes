@@ -17,7 +17,7 @@ Scope {
 
     PanelWindow {
         id: panelWindow
-        property string searchingText: ""
+        property string searchingText: LauncherSearch.query
         readonly property HyprlandMonitor monitor: Hyprland.monitorFor(panelWindow.screen ?? Quickshell.screens[0])
         readonly property bool barCenterOnly: Config.options.bar.layouts.leftLayout.length === 0
             && Config.options.bar.layouts.rightLayout.length === 0
@@ -113,13 +113,11 @@ Scope {
             SearchWidget {
                 id: searchWidget
                 anchors.horizontalCenter: parent.horizontalCenter
-                Synchronizer on searchingText {
-                    property alias source: panelWindow.searchingText
-                }
             }
 
             Loader {
                 id: overviewLoader
+                visible: (panelWindow?.searchingText ?? "") == ""
                 active: GlobalStates.overviewOpen && (Config?.options.overview.enable ?? true)
                 sourceComponent: (Config?.options.overview.style ?? "default") === "niri" ? niriComponent : defaultComponent
 
@@ -127,7 +125,7 @@ Scope {
                     id: defaultComponent
                     OverviewWidget {
                         screen: panelWindow?.screen ?? Quickshell.screens[0]
-                        visible: ((panelWindow?.searchingText ?? "") == "")
+                        visible: overviewLoader.visible
                     }
                 }
 
@@ -136,7 +134,7 @@ Scope {
                     NiriOverview {
                         screen: panelWindow?.screen ?? Quickshell.screens[0]
                         panelWindow: panelWindow
-                        visible: ((panelWindow?.searchingText ?? "") == "")
+                        visible: overviewLoader.visible
                     }
                 }
             }

@@ -18,35 +18,36 @@ Port requested features from `P3DROVFX/ii-p3drovfx` into `end4-pC`:
 
 ## Phases
 
-### [ ] Phase 1: Architecture Mapping & Setup
-- [x] Create directory backup & git backup branch.
-- [ ] Map required shared JS helpers, icons, and services needed by widgets, launcher, bar, and settings.
-- [ ] Ensure non-destructive addon structure for widgets.
+### [x] Phase 1: Architecture Mapping & Setup
+- [x] Create directory backup & git backup branch (`backup-pre-snatch`, `integrate-vynx-features`, and `~/.config/quickshell/end4-pC-backup-20261006_160052`).
+- [x] Map required shared JS helpers, icons, and services needed by widgets, launcher, bar, and settings.
+- [x] Ensure non-destructive addon structure for widgets.
 
-### [ ] Phase 2: Desktop Background Widgets & Media Mode (#1)
-- [ ] Port clock widgets (Nothing Wheel/Digital, WearOS Arc/Ring, Nagasaki, Scallop, Concentric, Cookie, Flex, Word, etc.).
-- [ ] Port utility widgets (Nothing CPU/RAM/Disk dials, resource pills, At-A-Glance, Android search pill, Water reminder, Quote, 2x1 notes/email).
-- [ ] Port alternative media widgets (CD spinning disc, Circular, Compact, Nothing Ring, Android).
-- [ ] Port `MediaMode` (immersive backdrop, synced lyrics, queue, cover art, side panels).
-- [ ] Register new widgets in `WidgetsRegistry.qml` / `WidgetsLoader.qml` as addons without altering existing widgets.
+### [x] Phase 2: Desktop Background Widgets & Media Mode (#1)
+- [x] Port clock widgets (Nothing Wheel/Digital, WearOS Arc/Ring, Nagasaki, Scallop, Concentric, Cookie, Flex, Word, etc.).
+- [x] Port utility widgets (Nothing CPU/RAM/Disk dials, resource pills, At-A-Glance, Android search pill, Water reminder, Quote, 2x1 notes/email).
+- [x] Port alternative media widgets (CD spinning disc, Circular, Compact, Nothing Ring, Android).
+- [x] Port `MediaMode` (immersive backdrop, synced lyrics, queue, cover art, side panels) with multi-monitor IPC/hotkey controls.
+- [x] Register new widgets in `WidgetsRegistry.qml` and `WidgetsLoader.qml` as addons while maintaining custom visualizers (`VisualizerWidget.qml`, `wuwa.frag`, `fluid_wuwa.frag`). Added `VisualizerWidgetConfig.qml` for configuring both desktop visualizers in Settings.
 
-### [ ] Phase 3: Power-User Search Launcher & Overview (#2)
-- [ ] Port calculator / unit & currency converter into search engine.
-- [ ] Port 2-step power action confirmation safeguard.
-- [ ] Port launcher micro-apps & panels (TypingTest, SpeedTest, Grammar, MediaDownloader, MaterialSymbols, Emoji, FileBrowser, Tools, etc.).
-- [ ] Wire up sub-panels into `Overview.qml` / `SearchWidget.qml`.
+### [x] Phase 3: Power-User Search Launcher & Overview (#2)
+- [x] Port calculator / unit & currency converter into search engine (instant JS evaluation + `libqalculate` / `qalc`).
+- [x] Port 2-step power action confirmation safeguard.
+- [x] Port launcher micro-apps & panels (TypingTest, SpeedTest, Grammar, MediaDownloader, MaterialSymbols, Emoji, FileBrowser, Tools, etc.).
+- [x] Wire up sub-panels into `Overview.qml` / `SearchWidget.qml`.
 
-### [ ] Phase 4: Bar Customizability & Modular Management (#4)
-- [ ] Port bar styling options (Float, Hug, Rect styles, appearance customization, scroll actions, tooltips).
-- [ ] Port bar configuration controls (`BarAppearanceConfig`, `BarLayoutConfig`, `BarPopupsConfig`, `BarScrollActionsConfig`, `BarTooltipsConfig`).
-- [ ] Ensure user's custom `IslandFiller.qml` and existing bar widgets integrate cleanly.
+### [x] Phase 4: Bar Customizability & Modular Management (#4)
+- [x] Port bar styling options (Float, Hug, Rect styles, appearance customization, scroll actions, tooltips).
+- [x] Port bar configuration controls (`BarAppearanceConfig`, `BarLayoutConfig`, `BarPopupsConfig`, `BarScrollActionsConfig`, `BarTooltipsConfig`).
+- [x] Ensure user's custom `IslandFiller.qml` and existing bar widgets integrate cleanly with brightness/volume scroll and sidebar click-to-open.
 
-### [ ] Phase 5: Redesigned Granular Settings Center (#7)
-- [ ] Port the granular `modules/settings/configs/` suite (40+ category pages).
-- [ ] Exclude/hide dock and overlay settings tabs to keep settings clean and aligned with user preferences.
-- [ ] Ensure SettingsWindow / Settings launcher connects seamlessly to `GlobalStates.qml`.
+### [x] Phase 5: Redesigned Granular Settings Center (#7)
+- [x] Port the granular `modules/settings/configs/` suite (40+ category pages).
+- [x] Exclude/hide dock, overlay, and phone bridge settings tabs to keep settings clean and aligned with user preferences.
+- [x] Ensure SettingsWindow / Settings launcher connects seamlessly to `GlobalStates.qml` via IPC and global shortcuts.
 
-### [ ] Phase 6: Verification & Polish
-- [ ] Run QML syntax check / inspect for missing imports or dead references.
-- [ ] Test live with `qs -c end4-pC`.
-- [ ] Confirm user's custom features (WuWa visualizer, etc.) continue functioning flawlessly.
+### [x] Phase 6: Verification & Polish
+- [x] Run QML syntax check / inspect for missing imports or dead references.
+- [x] Test live with `qs -c end4-pC` via IPC (`settings openPage`, `search setQuery`, `mediaMode toggle`).
+- [x] Confirm user's custom features (WuWa visualizer, IslandFiller, etc.) continue functioning flawlessly.
+- [x] Clean up temporary files and commit all work to git branch `integrate-vynx-features`.

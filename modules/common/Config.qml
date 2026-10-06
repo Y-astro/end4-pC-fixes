@@ -96,6 +96,93 @@ Singleton {
             property JsonObject policies: JsonObject {
                 property int ai: 1 // 0: No | 1: Yes | 2: Local
                 property int weeb: 1 // 0: No | 1: Open | 2: Closet
+                property int phone: 1 // 0: No | 1: Yes
+                property int wallpapers: 1 // 0: No | 1: Yes
+                property int translator: 1 // 0: No | 1: Yes
+                property int player: 1 // 0: No | 1: Yes
+            }
+
+            property JsonObject phone: JsonObject {
+                property bool kdeconnectEnabled: true
+                property bool remoteCommands: true
+                property bool mirrorNotificationsToDesktop: true
+                property bool showPeripheralCards: true
+                property JsonObject contacts: JsonObject {
+                    property bool enabled: true
+                    property list<string> favoriteIds: []
+                    property bool showAvatars: true
+                    property string sortBy: "first"
+                    property bool hideUnnamed: true
+                }
+                property JsonObject scrcpy: JsonObject {
+                    property bool stayAwake: true
+                    property bool turnScreenOff: false
+                    property bool noPowerOn: false
+                    property bool noAudio: false
+                    property bool showTouches: false
+                    property bool fullscreen: false
+                    property bool alwaysOnTop: false
+                    property int maxFps: 120
+                    property string bitRate: "24M"
+                    property int maxSize: 0
+                    property int videoBuffer: 0
+                    property string videoCodec: "h264"
+                    property string videoEncoder: "c2.mtk.avc.encoder"
+                    property bool useWireless: false
+                    property bool autoWirelessIp: true
+                    property bool pinAdbPort: false
+                    property bool autoResume: true
+                    property string wirelessIp: ""
+                    property string wirelessPort: "5555"
+                    property bool showTerminal: false
+                    property string keyboardMode: "uhid"
+                    property bool clipboardSync: true
+                    property JsonObject recording: JsonObject {
+                        property string folder: ""
+                        property bool withAudio: true
+                    }
+                    property JsonObject embed: JsonObject {
+                        property bool enabled: false
+                        property int keepWarmSeconds: 120
+                    }
+                    property JsonObject appMode: JsonObject {
+                        property bool enabled: true
+                        property bool showAppIcons: true
+                        property string iconShape: "oneui"
+                        property bool flexDisplay: false
+                        property string onSessionEnd: "home"
+                        property bool autoUnlock: true
+                        property int displayWidth: 1280
+                        property int displayHeight: 960
+                        property int density: 160
+                        property bool keepActive: true
+                        property bool systemDecorations: true
+                        property list<string> favoritePackages: []
+                    }
+                }
+                property JsonObject webcam: JsonObject {
+                    property bool enabled: false
+                    property string cameraFacing: "front"
+                    property string resolution: "1280x720"
+                    property int fps: 30
+                    property string bitrate: "4M"
+                    property bool mirrorHorizontally: false
+                    property int rotateDegrees: 0
+                    property string connection: "usb"
+                    property string wifiIp: ""
+                    property int port: 4747
+                }
+                property JsonObject microphone: JsonObject {
+                    property bool enabled: false
+                    property string connection: "usb"
+                    property string wifiIp: ""
+                    property int port: 4748
+                    property bool noiseSuppression: false
+                    property bool echoCancellation: false
+                    property bool autoGainControl: false
+                    property int micGain: 100
+                    property bool setAsDefault: false
+                }
             }
 
             property JsonObject ai: JsonObject {

@@ -98,6 +98,21 @@ Singleton {
                     property bool collapsed: false
                     property int tab: 0
                 }
+                property JsonObject policies: JsonObject {
+                    property int tab: 0
+                    property JsonObject phone: JsonObject {
+                        property string activeDeviceId: ""
+                        property list<string> recentDeviceIds: []
+                        property string cachedNotificationsJson: ""
+                        property JsonObject scrcpy: JsonObject {
+                            property list<string> recentPackages: []
+                        }
+                        property JsonObject peripherals: JsonObject {
+                            property bool collapsed: false
+                            property int tab: 0
+                        }
+                    }
+                }
             }
 
             property JsonObject booru: JsonObject {

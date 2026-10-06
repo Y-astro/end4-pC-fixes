@@ -49,12 +49,14 @@ Item {
     property int sendingIndex: 0
 
 
-    readonly property bool emptyStateVisible: !KdeConnectService.available
-                                               || (KdeConnectService.hasDevices
-                                                   && KdeConnectService.devices
-                                                          .filter(d => d.reachable && d.paired)
-                                                          .length === 0)
-                                               || !KdeConnectService.hasDevices
+    readonly property bool emptyStateVisible: !KdeConnectService.adbReachable && (
+                                                   !KdeConnectService.available
+                                                   || (KdeConnectService.hasDevices
+                                                       && KdeConnectService.devices
+                                                              .filter(d => d.reachable && d.paired)
+                                                              .length === 0)
+                                                   || !KdeConnectService.hasDevices
+                                               )
 
 
     property int entranceTrigger: -1

@@ -2010,16 +2010,16 @@ Singleton {
         }
 
         let stayAwake = true
-        let turnScreenOff = true
+        let turnScreenOff = false
         let noPowerOn = true
         let noAudio = false
         let showTouches = false
         let fullscreen = false
         let alwaysOnTop = false
-        let maxFps = 60
-        let bitRate = "8M"
+        let maxFps = 120
+        let bitRate = "24M"
         let maxSize = 0
-        let videoBuffer = 80
+        let videoBuffer = 0
         let useWireless = false
         let wirelessIp = ""
         let wirelessPort = "5555"
@@ -2064,7 +2064,12 @@ Singleton {
         if (maxFps > 0) scrcpyArgs.push("--max-fps=" + maxFps)
         if (bitRate && bitRate !== "") scrcpyArgs.push("--video-bit-rate=" + bitRate)
         if (maxSize > 0) scrcpyArgs.push("--max-size=" + maxSize)
-        if (videoBuffer > 0) scrcpyArgs.push("--video-buffer=" + videoBuffer)
+        if (videoBuffer !== undefined && videoBuffer >= 0) scrcpyArgs.push("--video-buffer=" + videoBuffer)
+        scrcpyArgs.push("--video-codec=h264")
+        if (Config.options?.phone?.scrcpy?.videoEncoder && Config.options.phone.scrcpy.videoEncoder !== "auto") {
+            scrcpyArgs.push("--video-encoder=" + Config.options.phone.scrcpy.videoEncoder)
+        }
+        scrcpyArgs.push("--keyboard=uhid")
 
         let baseCmd = ""
         if (root.resolvedAdbSerial) {

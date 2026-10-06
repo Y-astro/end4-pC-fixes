@@ -27,7 +27,7 @@ ContentPage {
     signal goBack()
 
     readonly property bool _ready: KdeConnectService.scrcpyAvailable
-        && KdeConnectService.activeReachable
+        && (KdeConnectService.activeReachable || KdeConnectService.adbReachable)
 
     // Slide-up entrance when the sub-page overlay loads.
     opacity: 0
@@ -218,7 +218,7 @@ ContentPage {
                     Layout.fillWidth: true
                     text: mirrorToggleBtn.isLaunching
                         ? Translation.tr("Launching scrcpy…")
-                        : (mirrorToggleBtn.isRunning ? Translation.tr("Kill scrcpy") : Translation.tr("Launch scrcpy"))
+                        : (mirrorToggleBtn.isRunning ? Translation.tr("Stop Mirror") : Translation.tr("Launch 120Hz Mirror"))
                     font.pixelSize: Appearance.font.pixelSize.normal
                     font.weight: Font.DemiBold
                     color: mirrorToggleBtn.isRunning

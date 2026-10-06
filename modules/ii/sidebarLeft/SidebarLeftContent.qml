@@ -1,29 +1,50 @@
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import qs.modules.common.functions
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
 import Qt.labs.synchronizer
+import "../sidebarPolicies/phone"
 
 Item {
     id: root
     required property var scopeRoot
     property int sidebarPadding: 10
     anchors.fill: parent
+    property bool phoneEnabled: (Config.options?.policies?.phone ?? 1) !== 0
     property bool aiChatEnabled: Config.options.policies.ai !== 0
     property bool translatorEnabled: Config.options.sidebar.translator.enable
     property bool animeEnabled: Config.options.policies.weeb !== 0
     property bool animeCloset: Config.options.policies.weeb === 2
     property bool mediaEnabled: Config.options.sidebar.media.enable
     property var tabButtonList: [
+        ...(root.phoneEnabled ? [{"icon": "smartphone", "name": Translation.tr("Phone")}] : []),
         ...(root.aiChatEnabled ? [{"icon": "neurology", "name": Translation.tr("Intelligence")}] : []),
         ...(root.translatorEnabled ? [{"icon": "translate", "name": Translation.tr("Translator")}] : []),
         ...(root.mediaEnabled ? [{"icon": "music_note", "name": Translation.tr("Media")}] : []),
         ...((root.animeEnabled && !root.animeCloset) ? [{"icon": "bookmark_heart", "name": Translation.tr("Anime")}] : [])
     ]
     property int tabCount: swipeView.count
+
+    function applyTabRequest(): void {
+        const wanted = GlobalStates.policiesRequestTabIcon;
+        if (!wanted) return;
+        const index = root.tabButtonList.findIndex(t => t.icon === wanted);
+        GlobalStates.policiesRequestTabIcon = "";
+        if (index >= 0) {
+            verticalTabBar.currentIndex = index;
+        }
+    }
+
+    Connections {
+        target: GlobalStates
+        function onPoliciesRequestTabIconChanged(): void {
+            root.applyTabRequest();
+        }
+    }
 
     function focusActiveItem() {
         swipeView.currentItem.forceActiveFocus()
@@ -54,8 +75,17 @@ Item {
             visible: tabButtonList.length > 0
             Layout.fillWidth: true
             tabButtonList: root.tabButtonList
-            currentIndex: swipeView.currentIndex
-            onCurrentIndexChanged: swipeView.currentIndex = currentIndex
+            currentIndex: (Persistent.ready && Persistent.states.sidebar.policies)
+                ? Math.min(Math.max(0, Persistent.states.sidebar.policies.tab), Math.max(0, root.tabButtonList.length - 1))
+                : 0
+            onCurrentIndexChanged: {
+                if (swipeView.currentIndex !== currentIndex) {
+                    swipeView.currentIndex = currentIndex;
+                }
+                if (Persistent.ready && Persistent.states.sidebar.policies) {
+                    Persistent.states.sidebar.policies.tab = currentIndex;
+                }
+            }
         }
 
         Rectangle {
@@ -73,7 +103,12 @@ Item {
                 id: swipeView
                 anchors.fill: parent
                 spacing: 10
-                currentIndex: tabBar.currentIndex
+                currentIndex: verticalTabBar.currentIndex
+                onCurrentIndexChanged: {
+                    if (verticalTabBar.currentIndex !== currentIndex) {
+                        verticalTabBar.currentIndex = currentIndex;
+                    }
+                }
 
                 clip: true
                 layer.enabled: true
@@ -86,15 +121,20 @@ Item {
                 }
 
                 contentChildren: [
+                    ...(root.phoneEnabled ? [phoneTab.createObject()] : []),
                     ...(root.aiChatEnabled ? [aiChat.createObject()] : []),
                     ...(root.translatorEnabled ? [translator.createObject()] : []),
                     ...(root.mediaEnabled ? [media.createObject()] : []),
-                    ...((root.tabButtonList.length === 0 || (!root.aiChatEnabled && !root.translatorEnabled && root.animeCloset)) ? [placeholder.createObject()] : []),
+                    ...((root.tabButtonList.length === 0 || (!root.phoneEnabled && !root.aiChatEnabled && !root.translatorEnabled && root.animeCloset)) ? [placeholder.createObject()] : []),
                     ...(root.animeEnabled ? [anime.createObject()] : []),
                 ]
             }
         }
 
+        Component {
+            id: phoneTab
+            Phone {}
+        }
         Component {
             id: aiChat
             AiChat {}

@@ -306,6 +306,10 @@ Scope { // Scope
         function open(): void {
             GlobalStates.sidebarLeftOpen = true
         }
+
+        function launchMirror(): void {
+            PhoneScrcpyService.openMirrorWindow()
+        }
     }
 
     CompositorGlobalShortcut {

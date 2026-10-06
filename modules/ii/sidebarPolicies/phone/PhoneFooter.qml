@@ -60,7 +60,7 @@ Rectangle {
     readonly property bool _scrcpyPresent: KdeConnectService.scrcpyAvailable
     readonly property bool _droidcamPresent: PhoneCameraService.available
     readonly property bool _micPresent: PhoneMicService.available
-    readonly property bool _deviceOnline: KdeConnectService.activeReachable
+    readonly property bool _deviceOnline: KdeConnectService.activeReachable || KdeConnectService.adbReachable
 
     readonly property bool embedEnabled: Config.options?.phone?.scrcpy?.embed?.enabled ?? true
     readonly property bool mirrorRunning: KdeConnectService.scrcpyRunning || PhoneScrcpyService.mirrorRunning
@@ -357,7 +357,7 @@ Rectangle {
             }
             mainLabel: !root._scrcpyPresent ? Translation.tr("How to install")
                 : root.embedEnabled ? (root.mirrorEmbedded ? Translation.tr("Show here") : Translation.tr("Mirror here"))
-                : root.mirrorRunning ? Translation.tr("Stop") : Translation.tr("Open window")
+                : root.mirrorRunning ? Translation.tr("Stop Mirror") : Translation.tr("Launch 120Hz Mirror")
             mainSymbol: !root._scrcpyPresent ? "download"
                 : root.embedEnabled ? "view_sidebar"
                 : root.mirrorRunning ? "stop" : "open_in_new"

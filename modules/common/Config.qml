@@ -116,7 +116,7 @@ Singleton {
                 }
                 property JsonObject scrcpy: JsonObject {
                     property bool stayAwake: true
-                    property bool turnScreenOff: false
+                    property bool turnScreenOff: true
                     property bool noPowerOn: false
                     property bool noAudio: false
                     property bool showTouches: false
@@ -136,6 +136,7 @@ Singleton {
                     property string wirelessPort: "5555"
                     property bool showTerminal: false
                     property string keyboardMode: "uhid"
+                    property string mouseMode: "sdk"
                     property bool clipboardSync: true
                     property JsonObject recording: JsonObject {
                         property string folder: ""

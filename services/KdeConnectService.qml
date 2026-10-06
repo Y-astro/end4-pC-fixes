@@ -1554,6 +1554,36 @@ Singleton {
         root.actionFeedback(Translation.tr("Toggled phone power"), true)
     }
 
+    /** Controls phone keep-awake via ADB. */
+    function adbSetStayAwake(enable) {
+        const val = enable ? "7" : "0"
+        const svc = enable ? "true" : "false"
+        Quickshell.execDetached(["bash", "-c",
+            "adb shell settings put global stay_on_while_plugged_in " + val + " >/dev/null 2>&1; " +
+            "adb shell svc power stayon " + svc + " >/dev/null 2>&1; " +
+            (enable ? "adb shell input keyevent 224 >/dev/null 2>&1 || true" : "true")
+        ])
+        root.actionFeedback(enable ? Translation.tr("Phone will stay awake") : Translation.tr("Normal screen timeout"), true)
+    }
+
+    /** Turns phone physical display off or resets it via DisplayManager. */
+    function adbSetScreenOff(off) {
+        Quickshell.execDetached(["bash", "-c",
+            off ? "adb shell cmd display power-off 0 >/dev/null 2>&1" : "adb shell cmd display power-reset 0 >/dev/null 2>&1"
+        ])
+        root.actionFeedback(off ? Translation.tr("Phone screen turned off") : Translation.tr("Phone screen turned on"), true)
+    }
+
+    /** Enforces 120Hz high refresh rate on the phone (disables ColorOS downclocking). */
+    function adbEnsureHighRefreshRate() {
+        Quickshell.execDetached(["bash", "-c",
+            "adb shell settings put secure oplus_customize_screen_refresh_rate 3 >/dev/null 2>&1; " +
+            "adb shell settings put system min_refresh_rate 120.0 >/dev/null 2>&1; " +
+            "adb shell settings put system peak_refresh_rate 120.0 >/dev/null 2>&1; " +
+            "adb shell cmd display set-user-preferred-display-mode 1080 2392 120 0 >/dev/null 2>&1 || true"
+        ])
+    }
+
     /** Adjusts phone media volume via ADB. direction: +1 = up, -1 = down. */
     function adbChangeVolume(direction) {
         const key = direction > 0 ? "24" : "25"  // KEYCODE_VOLUME_UP / _DOWN
@@ -2010,7 +2040,7 @@ Singleton {
         }
 
         let stayAwake = true
-        let turnScreenOff = false
+        let turnScreenOff = true
         let noPowerOn = true
         let noAudio = false
         let showTouches = false
@@ -2027,8 +2057,8 @@ Singleton {
 
         if (Config.options.phone && Config.options.phone.scrcpy) {
             const scrcpyConf = Config.options.phone.scrcpy
-            stayAwake = scrcpyConf.stayAwake
-            turnScreenOff = scrcpyConf.turnScreenOff
+            stayAwake = scrcpyConf.stayAwake ?? true
+            turnScreenOff = scrcpyConf.turnScreenOff ?? true
             noPowerOn = scrcpyConf.noPowerOn
             noAudio = scrcpyConf.noAudio
             showTouches = scrcpyConf.showTouches
@@ -2053,6 +2083,9 @@ Singleton {
             }
         }
 
+        root.adbEnsureHighRefreshRate()
+        if (stayAwake) root.adbSetStayAwake(true)
+
         if (stayAwake) scrcpyArgs.push("--stay-awake")
         if (turnScreenOff) scrcpyArgs.push("--turn-screen-off")
         if (noPowerOn) scrcpyArgs.push("--no-power-on")
@@ -2070,6 +2103,9 @@ Singleton {
             scrcpyArgs.push("--video-encoder=" + Config.options.phone.scrcpy.videoEncoder)
         }
         scrcpyArgs.push("--keyboard=uhid")
+        if (Config.options?.phone?.scrcpy?.mouseMode === "uhid") {
+            scrcpyArgs.push("--mouse=uhid")
+        }
 
         let baseCmd = ""
         if (root.resolvedAdbSerial) {

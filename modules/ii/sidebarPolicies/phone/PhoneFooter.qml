@@ -386,9 +386,17 @@ Rectangle {
                 { icon: "view_sidebar", label: Translation.tr("In sidebar"), checked: root.embedEnabled,
                   toggle: () => Config.options.phone.scrcpy.embed.enabled = !root.embedEnabled },
                 { icon: "mobile_off", label: Translation.tr("Screen off"), checked: Config.options.phone.scrcpy.turnScreenOff,
-                  toggle: () => Config.options.phone.scrcpy.turnScreenOff = !Config.options.phone.scrcpy.turnScreenOff },
+                  toggle: () => {
+                      const next = !Config.options.phone.scrcpy.turnScreenOff;
+                      PhoneScrcpyService.setTurnScreenOff(next);
+                  }
+                },
                 { icon: "coffee", label: Translation.tr("Stay awake"), checked: Config.options.phone.scrcpy.stayAwake,
-                  toggle: () => Config.options.phone.scrcpy.stayAwake = !Config.options.phone.scrcpy.stayAwake },
+                  toggle: () => {
+                      const next = !Config.options.phone.scrcpy.stayAwake;
+                      PhoneScrcpyService.setStayAwake(next);
+                  }
+                },
                 { icon: "volume_up", label: Translation.tr("Audio"), checked: !Config.options.phone.scrcpy.noAudio,
                   toggle: () => Config.options.phone.scrcpy.noAudio = !Config.options.phone.scrcpy.noAudio },
                 { icon: "wifi", label: Translation.tr("Wireless"), checked: Config.options.phone.scrcpy.useWireless,

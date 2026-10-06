@@ -241,6 +241,16 @@ Singleton {
             KdeConnectService.killScrcpy()
     }
 
+    function setStayAwake(enabled: bool): void {
+        if (Config.options?.phone?.scrcpy) Config.options.phone.scrcpy.stayAwake = enabled
+        KdeConnectService.adbSetStayAwake(enabled)
+    }
+
+    function setTurnScreenOff(off: bool): void {
+        if (Config.options?.phone?.scrcpy) Config.options.phone.scrcpy.turnScreenOff = off
+        KdeConnectService.adbSetScreenOff(off)
+    }
+
     // ─── Failure feedback ─────────────────────────────────────
     /** A mirror or app window failed; `reason` is already user-facing. The
      *  island shows it when it owns phone mirror failures, see
@@ -353,7 +363,7 @@ Singleton {
         if (opts.videoBuffer !== undefined && opts.videoBuffer >= 0) args.push("--video-buffer=" + opts.videoBuffer)
         if (opts.videoCodec) args.push("--video-codec=" + opts.videoCodec)
         if (opts.videoEncoder && opts.videoEncoder !== "auto") args.push("--video-encoder=" + opts.videoEncoder)
-        args.push(...root._inputArgs())
+        args.push(...root._inputArgs(true))
         // Locking must not flash the phone awake on the way out. Without this
         // scrcpy restores the screen power it had turned off, and only then
         // does the sleep land — so the panel lights up for a moment first.
@@ -362,6 +372,10 @@ Singleton {
     }
 
     function _launchMirror(targetArgs): void {
+        KdeConnectService.adbEnsureHighRefreshRate()
+        if (Config.options?.phone?.scrcpy?.stayAwake ?? true) {
+            KdeConnectService.adbSetStayAwake(true)
+        }
         const extraArgs = root._commonScrcpyArgs()
 
         root._rememberSession("mirror", "mirror", extraArgs)
@@ -509,18 +523,19 @@ Singleton {
             if (opts.bitRate) args.push("--video-bit-rate=" + opts.bitRate)
             if (opts.videoBuffer > 0) args.push("--video-buffer=" + opts.videoBuffer)
         }
-        args.push(...root._inputArgs())
+        args.push(...root._inputArgs(false))
         return args
     }
 
     /** Keyboard and clipboard, the same for every window that takes input.
-     *  The mouse stays scrcpy's default on purpose: a UHID mouse captures the
-     *  pointer (Alt to let go), which would trap it inside the sidebar's
-     *  embedded phone. */
-    function _inputArgs() {
+     *  The mouse stays scrcpy's default on purpose for embedded sessions: a
+     *  UHID mouse captures the pointer (Alt to let go), which would trap it
+     *  inside the sidebar. Standalone windows can use UHID mouse when enabled. */
+    function _inputArgs(allowUhidMouse) {
         const opts = Config.options?.phone?.scrcpy
         const args = []
         if ((opts?.keyboardMode ?? "uhid") === "uhid") args.push("--keyboard=uhid")
+        if (Boolean(allowUhidMouse) && opts?.mouseMode === "uhid") args.push("--mouse=uhid")
         if (!(opts?.clipboardSync ?? true)) args.push("--no-clipboard-autosync")
         return args
     }

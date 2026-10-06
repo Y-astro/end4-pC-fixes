@@ -222,13 +222,13 @@ Item {
                     symbol: "lock"
                     title: Translation.tr("Stay awake")
                     checked: root.scrcpy.stayAwake
-                    onToggled: value => root.scrcpy.stayAwake = value
+                    onToggled: value => PhoneScrcpyService.setStayAwake(value)
                 }
                 ToggleRow {
                     symbol: "phone_android"
                     title: Translation.tr("Turn screen off")
                     checked: root.scrcpy.turnScreenOff
-                    onToggled: value => root.scrcpy.turnScreenOff = value
+                    onToggled: value => PhoneScrcpyService.setTurnScreenOff(value)
                 }
                 ToggleRow {
                     symbol: "power_settings_new"
@@ -303,6 +303,13 @@ Item {
                     help: Translation.tr("The phone sees a real keyboard: accents, dead keys and shortcuts work. Set the phone's physical keyboard layout (Settings → General management → Physical keyboard) to match this PC's. Turn off if typing does nothing on your phone.")
                     checked: (root.scrcpy.keyboardMode ?? "uhid") === "uhid"
                     onToggled: value => root.scrcpy.keyboardMode = value ? "uhid" : "sdk"
+                }
+                ToggleRow {
+                    symbol: "mouse"
+                    title: Translation.tr("Hardware mouse (UHID)")
+                    help: Translation.tr("The phone sees a real hardware USB mouse with direct cursor and wheel control. The pointer is captured in the mirror window (press Alt or Super to release).")
+                    checked: (root.scrcpy.mouseMode ?? "sdk") === "uhid"
+                    onToggled: value => root.scrcpy.mouseMode = value ? "uhid" : "sdk"
                 }
                 ToggleRow {
                     symbol: "content_paste"

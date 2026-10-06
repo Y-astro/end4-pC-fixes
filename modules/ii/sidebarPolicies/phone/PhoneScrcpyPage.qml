@@ -389,14 +389,14 @@ ContentPage {
             buttonIcon: "coffee"
             text: Translation.tr("Stay awake")
             checked: Config.options.phone.scrcpy.stayAwake
-            onCheckedChanged: Config.options.phone.scrcpy.stayAwake = checked
+            onCheckedChanged: PhoneScrcpyService.setStayAwake(checked)
         }
 
         ConfigSwitch {
             buttonIcon: "phone_android"
             text: Translation.tr("Turn screen off")
             checked: Config.options.phone.scrcpy.turnScreenOff
-            onCheckedChanged: Config.options.phone.scrcpy.turnScreenOff = checked
+            onCheckedChanged: PhoneScrcpyService.setTurnScreenOff(checked)
         }
 
         ConfigSwitch {

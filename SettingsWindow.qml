@@ -468,9 +468,12 @@ PanelWindow {
     // page loads after and is revealed whole (see pageLoader).
     readonly property bool readyToShow: sidebarV2.built
 
-    onReadyToShowChanged: {
-        if (root.readyToShow && GlobalStates.settingsOpen && !root.visible)
-            root.visible = true;
+    visible: GlobalStates.settingsOpen && root.readyToShow
+
+    Shortcut {
+        sequence: "Escape"
+        enabled: GlobalStates.settingsOpen
+        onActivated: root.hide()
     }
 
     screen: Quickshell.screens.find(s => s.name === (Hyprland.focusedMonitor?.name ?? "")) ?? Quickshell.screens[0]
@@ -493,17 +496,8 @@ PanelWindow {
     }
 
     Connections {
-        target: GlobalFocusGrab
-        function onDismissed() {
-            root.hide();
-        }
-    }
-
-
-    Connections {
         target: GlobalStates
         function onSettingsOpenChanged() {
-            root.visible = GlobalStates.settingsOpen && root.readyToShow;
             if (GlobalStates.settingsOpen) {
                 if (GlobalStates.settingsSuspendedForScreenshot) {
                     GlobalStates.settingsSuspendedForScreenshot = false;
@@ -557,17 +551,14 @@ PanelWindow {
                 root.endNavigationSession();
             if (GlobalStates.settingsOpen && !GlobalStates.settingsSuspendedForScreenshot)
                 GlobalStates.settingsOpen = false;
-            GlobalFocusGrab.removeDismissable(root);
         } else if (GlobalStates.settingsOpen) {
             SearchRegistry.setSettingsActive(true);
-            GlobalFocusGrab.addDismissable(root);
             if (!GlobalStates.settingsSuspendedForScreenshot)
                 Qt.callLater(() => root.ensurePageReady());
         }
     }
 
     Component.onCompleted: {
-        root.visible = GlobalStates.settingsOpen && root.readyToShow;
         if (GlobalStates.settingsOpen) {
             // The deep link that opened this window fired before the window
             // existed: the loader below shell.qml only starts building it when
@@ -591,6 +582,7 @@ PanelWindow {
     }
 
     Component.onDestruction: {
+        GlobalFocusGrab.removeDismissable(root);
         if (!GlobalStates.settingsOpen)
             SearchRegistry.setSettingsActive(false);
     }
@@ -644,7 +636,7 @@ PanelWindow {
     Rectangle {
         id: backdrop
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.4)
+        color: "transparent"
         opacity: GlobalStates.settingsOpen ? 1 : 0
         z: 0
 

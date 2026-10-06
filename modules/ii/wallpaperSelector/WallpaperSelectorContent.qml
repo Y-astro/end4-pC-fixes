@@ -13,6 +13,11 @@ import Quickshell.Io
 MouseArea {
     id: root
     property int columns: Config.options.wallpaperSelector.columns || 4
+    property bool compact: false
+    property bool active: true
+    signal closeRequested()
+    property string compactStyle: "row"
+    property real screenAspect: 16 / 10
     property real previewCellAspectRatio: 4 / 3
     property bool useDarkMode: Appearance.m3colors.darkmode
     property bool showControls: false

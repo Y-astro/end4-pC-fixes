@@ -16,7 +16,7 @@ ContentPage {
     id: page
     forceWidth: false
 
-    readonly property var opts: Config.options.modes
+    readonly property var opts: Config.options?.modes ?? ({})
 
     // The shortcut is bound in the Hyprland config, which the shell's own
     // update never touches — so it can be missing on an otherwise current

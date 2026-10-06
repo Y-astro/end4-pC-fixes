@@ -42,8 +42,8 @@ Singleton {
     readonly property bool storesReady: Config.ready && Persistent.ready
     // Flips once the persisted state has been reconciled; watchers only start then.
     property bool ready: false
-    readonly property bool enabled: Config.options.modes.enable
-    readonly property int graceSec: Config.options.modes.graceSec
+    readonly property bool enabled: Config.options?.modes?.enable ?? false
+    readonly property int graceSec: Config.options?.modes?.graceSec ?? 5
 
     // Normalized copies of the definitions. Always JS arrays, replaced only
     // when the content actually differs so watchers are not rebuilt for
@@ -59,7 +59,7 @@ Singleton {
     property var pendingRoutines: null
 
     function refreshDefinitions() {
-        if (!root.storesReady)
+        if (!root.storesReady || !Config.options?.modes)
             return;
         const nextModes = root.pendingModes ?? ModeSchema.normalizeModes(Config.options.modes.modes);
         if (!ModeSchema.valuesEqual(nextModes, root.modes))
@@ -71,6 +71,7 @@ Singleton {
     }
 
     function flushSaves() {
+        if (!Config.options?.modes) return;
         if (root.pendingModes) {
             Config.options.modes.modes = root.pendingModes;
             root.pendingModes = null;
@@ -82,19 +83,19 @@ Singleton {
         root.refreshDefinitions();
     }
 
-    readonly property var state: Persistent.states.modes
-    readonly property string activeModeId: root.ready ? root.state.activeId : ""
+    readonly property var state: Persistent.states?.modes ?? ({})
+    readonly property string activeModeId: root.ready ? (root.state?.activeId ?? "") : ""
     readonly property var activeMode: root.modeById(root.activeModeId)
     readonly property bool active: root.activeModeId.length > 0 && root.activeMode !== null
-    readonly property string activeSource: root.state.activeSource
+    readonly property string activeSource: root.state?.activeSource ?? ""
     readonly property bool activeIsManual: root.activeSource === "manual" || root.activeSource === "routine"
-    readonly property real activeSince: root.state.activeSince
-    readonly property real activeEndsAt: root.state.activeEndsAt
-    readonly property string lastUsedModeId: root.state.lastUsedModeId
+    readonly property real activeSince: root.state?.activeSince ?? 0
+    readonly property real activeEndsAt: root.state?.activeEndsAt ?? 0
+    readonly property string lastUsedModeId: root.state?.lastUsedModeId ?? ""
     readonly property var lastUsedMode: root.modeById(root.lastUsedModeId)
-    readonly property var history: ModeSchema.toArray(root.state.history)
+    readonly property var history: ModeSchema.toArray(root.state?.history ?? [])
     // Running `while` routines: [{id, source, since, snapshot, failed}]
-    readonly property var routineRuns: root.ready ? ModeSchema.toArray(root.state.routineRuns) : []
+    readonly property var routineRuns: root.ready ? ModeSchema.toArray(root.state?.routineRuns ?? []) : []
     readonly property var runningRoutineIds: root.routineRuns.map(r => r.id)
 
     readonly property ModeActions actions: ModeActions {
@@ -1133,7 +1134,7 @@ Singleton {
     Component.onCompleted: root.reconcile()
 
     Connections {
-        target: Config.options.modes
+        target: Config.options?.modes ?? null
         function onModesChanged() {
             root.refreshDefinitions();
         }

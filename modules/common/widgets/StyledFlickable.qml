@@ -89,42 +89,13 @@ Flickable {
 
         const currentPos = (scrollAnim.running || bounceAnim.running) ? root.scrollTargetY : root.contentY;
         const rawTarget = currentPos - step;
-        var targetY = rawTarget;
-        var isOvershooting = false;
-
-        if (rawTarget < root.minY) {
-            isOvershooting = true;
-            const currentOvershoot = Math.max(0, root.minY - currentPos);
-            const resistance = Math.max(0.1, 0.45 * (1.0 - (currentOvershoot / root.maxBounceOvershoot)));
-            const effectiveStep = (currentPos <= root.minY) ? (step * resistance) : ((step - (currentPos - root.minY)) * resistance);
-            const newOvershoot = Math.min(root.maxBounceOvershoot, currentOvershoot + effectiveStep);
-            targetY = root.minY - newOvershoot;
-        } else if (rawTarget > root.maxY) {
-            isOvershooting = true;
-            const stepDown = -step;
-            const currentOvershoot = Math.max(0, currentPos - root.maxY);
-            const resistance = Math.max(0.1, 0.45 * (1.0 - (currentOvershoot / root.maxBounceOvershoot)));
-            const effectiveStep = (currentPos >= root.maxY) ? (stepDown * resistance) : ((stepDown - (root.maxY - currentPos)) * resistance);
-            const newOvershoot = Math.min(root.maxBounceOvershoot, currentOvershoot + effectiveStep);
-            targetY = root.maxY + newOvershoot;
-        }
-
-        if (!root.bounceEffectsEnabled) {
-            // No rubber-banding: clamp hard to the bounds, no rebound.
-            targetY = Math.max(root.minY, Math.min(root.maxY, rawTarget));
-            isOvershooting = false;
-        }
+        const targetY = Math.max(root.minY, Math.min(root.maxY, rawTarget));
 
         root.scrollTargetY = targetY;
         root._wheelScrolling = true;
         root.contentY = targetY;
         wheelEvent.accepted = true;
-
-        if (isOvershooting || targetY < root.minY || targetY > root.maxY) {
-            reboundTimer.restart();
-        } else {
-            reboundTimer.stop();
-        }
+        reboundTimer.stop();
     }
 
     // Do not overlay the content with a MouseArea: that would replace every

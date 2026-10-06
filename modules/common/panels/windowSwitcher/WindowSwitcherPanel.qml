@@ -7,7 +7,6 @@ import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
-import qs.modules.tablet.appDrawer
 import "../../../../services/windowSwitcher/WindowSwitcherLogic.js" as Logic
 
 /**

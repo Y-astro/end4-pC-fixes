@@ -17,8 +17,8 @@ Item {
 
     readonly property var appearance: Config.options.appearance
     readonly property var transparency: Config.options.appearance.transparency
-    readonly property var anim: Config.options.appearance.appLaunchAnimation
-    readonly property var switcher: Config.options.windowSwitcher
+    readonly property var anim: Config.options?.appearance?.appLaunchAnimation ?? ({})
+    readonly property var switcher: Config.options?.windowSwitcher ?? ({})
     readonly property string transparencyMode: !windowsRoot.transparency.enable ? "off"
         : windowsRoot.transparency.automatic ? "auto" : "custom"
 

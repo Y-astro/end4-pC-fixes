@@ -211,7 +211,8 @@ Singleton {
                 }
                 // An empty answer means hyprctl failed, not that there is no layout. Keeping the
                 // last known one is better than telling everything the layout just changed.
-                if (layout === "" || Persistent.states.hyprland.layout === layout) return;
+                if (layout === "" || (Persistent.states?.hyprland?.layout ?? "") === layout) return;
+                if (!Persistent.states?.hyprland) return;
                 Persistent.states.hyprland.layout = layout;
             }
         }

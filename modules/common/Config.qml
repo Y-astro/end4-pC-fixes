@@ -159,6 +159,14 @@ Singleton {
                     property string type: "auto" // Allowed: auto, scheme-content, scheme-expressive, scheme-fidelity, scheme-fruit-salad, scheme-monochrome, scheme-neutral, scheme-rainbow, scheme-tonal-spot
                     property string accentColor: ""
                 }
+                property JsonObject appLaunchAnimation: JsonObject {
+                    property bool enable: true
+                    property string style: "scale" // Allowed: scale, slide
+                    property string slideDirection: "auto" // Allowed: auto (nearest edge), bottom, top, left, right
+                    property int startPercent: 20 // 5 - 90%, unused by slide
+                    property real speed: 4.0 // Duration in tenths of a second
+                    property string curve: "iiAppOpen"
+                }
             }
 
             property JsonObject audio: JsonObject {
@@ -757,6 +765,60 @@ Singleton {
                     property string imageSource: "https://media.tenor.com/H5U5bJzj3oAAAAAi/kukuru.gif"
                     property real scale: 0.5
                 }
+            }
+
+            property JsonObject modes: JsonObject {
+                property bool enable: true
+                // Loads the Modes & Routines app (named from when it was an overlay).
+                property bool overlayEnabled: true
+                // Presets are added once; deleting one afterwards sticks.
+                property bool presetsSeeded: false
+                // "auto" shows the start/end banner in the island or, without
+                // a notch, as a top-centre popup; "off" shows nothing.
+                property string flash: "auto"
+                property bool lockPill: true
+                // Last visited page; unknown keys fall back to Modes.
+                property string lastTab: "modes"
+                property string lastModeId: ""
+                property string lastRoutineId: ""
+                // Seconds an auto-started mode's triggers must stay false
+                // before it ends, so a workspace switch does not flap it.
+                property int graceSec: 5
+                // Mode definitions, in priority order (first wins among
+                // automatic starts). Shape: see services/modes/ModeSchema.js.
+                property list<var> modes: []
+                property list<var> routines: []
+                // Game detection (services/GameDetector.qml). Signals 1–3 are
+                // instant; the GPU heuristic needs `gpuThreshold` % for `holdSec`.
+                property JsonObject game: JsonObject {
+                    property bool useLauncherClasses: true
+                    property bool useDesktopCategory: true
+                    property bool useGpuHeuristic: true
+                    property int gpuThreshold: 45
+                    property int holdSec: 20
+                    property list<string> extraClasses: []
+                }
+            }
+
+            // Alt+Tab. Drawn on the Dynamic Island when it is on, as a floating panel otherwise.
+            property JsonObject windowSwitcher: JsonObject {
+                property bool enable: true
+                // Windows on every workspace (special ones included), or only those on screen.
+                property bool includeOtherWorkspaces: true
+                // Only the windows on the monitor Alt+Tab is pressed on.
+                property bool currentMonitorOnly: false
+                // Live window previews on the island's cover flow and the floating panel.
+                property bool showThumbnails: true
+                // Holding one selection this long peeks at the window where it is; 0 never peeks.
+                property int peekDelayMs: 600
+                // The peek shows the window's whole workspace (its other windows, the bar kept),
+                // not the window alone over the wallpaper.
+                property bool peekWholeWorkspace: false
+                // A one-line key reminder under the switcher.
+                property bool showKeyHints: true
+                // Alt+letter on the desktop opens the switcher already searching. Off: typing
+                // searches only once Alt+Tab has opened it.
+                property bool searchAnywhere: false
             }
 
             property JsonObject overview: JsonObject {

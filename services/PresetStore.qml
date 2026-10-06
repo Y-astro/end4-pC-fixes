@@ -302,11 +302,11 @@ Singleton {
     // applyFinished: the apply reloads the shell, and the click is the one
     // moment certain to be followed by the state file's write.
     readonly property list<string> recentPresets: Persistent.ready
-        ? Persistent.states.background.recentPresets : []
+        ? (Persistent.states?.background?.recentPresets ?? []) : []
     function recordRecent(name) {
-        if (!Persistent.ready || !name)
+        if (!Persistent.ready || !name || !Persistent.states?.background)
             return;
-        const current = Array.from(Persistent.states.background.recentPresets);
+        const current = Array.from(Persistent.states.background.recentPresets ?? []);
         Persistent.states.background.recentPresets =
             [name].concat(current.filter(n => n !== name)).slice(0, 50);
     }

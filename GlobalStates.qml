@@ -231,7 +231,7 @@ Singleton {
     }
 
     function isMediaModeActiveForScreen(screenName) {
-        if (!Config.options.background.mediaMode.togglePerMonitor) {
+        if (!(Config.options?.background?.mediaMode?.togglePerMonitor ?? false)) {
             return mediaModeActive;
         }
         if (!screenName) return false;

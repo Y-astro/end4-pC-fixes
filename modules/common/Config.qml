@@ -120,6 +120,15 @@ Singleton {
             property JsonObject appearance: JsonObject {
                 property bool extraBackgroundTint: true
                 property int fakeScreenRounding: 2 // 0: None | 1: Always | 2: When not fullscreen
+                property bool sharpMode: false
+                property string globalRounding: "large"
+                property int roundingValue: 24
+                property int defaultBorderRadius: 18
+                property bool toggleWindowRounding: true
+                property real iconTintPercentage: 0.6
+                property real animationMultiplier: 1.0
+                property bool settingsPerformanceMode: false
+                property int settingsUnloadDelay: 0
                 property JsonObject fonts: JsonObject {
                     property string main: "Google Sans Flex"
                     property string numbers: "Google Sans Flex"
@@ -723,6 +732,12 @@ Singleton {
             property JsonObject notifications: JsonObject {
                 property int timeout: 7000
                 property string position: "top_right"
+                property int zoomPercent: 100
+                property bool autoDndFullscreen: true
+                property JsonObject monitor: JsonObject {
+                    property bool enable: false
+                    property string name: ""
+                }
             }
 
             property JsonObject osd: JsonObject {

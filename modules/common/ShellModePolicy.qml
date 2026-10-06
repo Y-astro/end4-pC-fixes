@@ -12,7 +12,7 @@ import qs
  * not drift into slightly different interpretations of the same constraints.
  * This object only reads Config and performs explicit writes through setMode().
  */
-QtObject {
+Singleton {
     id: root
 
     readonly property string effectiveMode: Config.ready

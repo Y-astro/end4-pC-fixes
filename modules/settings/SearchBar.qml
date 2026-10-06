@@ -217,6 +217,20 @@ RowLayout {
         }
         onAccepted: root.accepted(text)
 
+        Keys.onPressed: event => {
+            if (event.key === Qt.Key_Escape) {
+                if (searchInput.text.length > 0) {
+                    searchInput.text = "";
+                    root.textChanged("");
+                    searchIconShape.advanceShape();
+                } else {
+                    root.closeRequested();
+                }
+                event.accepted = true;
+                return;
+            }
+        }
+
         // Action button (arrow_forward) appearing inside search input on the right (40x40 circle)
         Rectangle {
             id: searchActionBtn

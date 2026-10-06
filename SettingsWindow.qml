@@ -8,6 +8,8 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
+import Quickshell.Wayland
+import Quickshell.Hyprland
 import qs.services
 import qs.modules.common
 import qs.modules.common.functions as CF
@@ -15,7 +17,7 @@ import qs.modules.common.widgets
 import Qt5Compat.GraphicalEffects
 import "modules/settings"
 
-FloatingWindow {
+PanelWindow {
     id: root
     property string firstRunFilePath: CF.FileUtils.trimFileProtocol(`${Directories.state}/user/first_run.txt`)
     property string firstRunFileContent: "This file is just here to confirm you've been greeted :>"
@@ -471,11 +473,32 @@ FloatingWindow {
             root.visible = true;
     }
 
-    title: "illogical-impulse Settings"
-    implicitWidth: 1100
-    implicitHeight: 750
-    minimumSize: Qt.size(750, 500)
+    screen: Quickshell.screens.find(s => s.name === (Hyprland.focusedMonitor?.name ?? "")) ?? Quickshell.screens[0]
+
+    function hide() {
+        GlobalStates.settingsOpen = false;
+    }
+
+    exclusiveZone: 0
+    WlrLayershell.namespace: "quickshell:settings"
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: GlobalStates.settingsOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     color: "transparent"
+
+    anchors {
+        top: true
+        bottom: true
+        left: true
+        right: true
+    }
+
+    Connections {
+        target: GlobalFocusGrab
+        function onDismissed() {
+            root.hide();
+        }
+    }
+
 
     Connections {
         target: GlobalStates
@@ -534,8 +557,10 @@ FloatingWindow {
                 root.endNavigationSession();
             if (GlobalStates.settingsOpen && !GlobalStates.settingsSuspendedForScreenshot)
                 GlobalStates.settingsOpen = false;
+            GlobalFocusGrab.removeDismissable(root);
         } else if (GlobalStates.settingsOpen) {
             SearchRegistry.setSettingsActive(true);
+            GlobalFocusGrab.addDismissable(root);
             if (!GlobalStates.settingsSuspendedForScreenshot)
                 Qt.callLater(() => root.ensurePageReady());
         }
@@ -615,22 +640,66 @@ FloatingWindow {
         pageLoader.beginGatedLoad(root.pages[root.currentPage].component);
     }
 
+    // ── Fullscreen Backdrop (Clicking outside closes dialog) ──────────────
     Rectangle {
+        id: backdrop
         anchors.fill: parent
+        color: Qt.rgba(0, 0, 0, 0.4)
+        opacity: GlobalStates.settingsOpen ? 1 : 0
+        z: 0
+
+        Behavior on opacity {
+            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            propagateComposedEvents: false
+            onClicked: root.hide()
+        }
+    }
+
+    // ── Centered Settings Dialog Card ─────────────────────────────────────
+    Rectangle {
+        id: settingsDialog
+        z: 1
+        anchors.centerIn: parent
+        width: Math.min(parent.width - 64, 1100)
+        height: Math.min(parent.height - 64, 750)
         color: Appearance.colors.colLayer0
         radius: Appearance.windowRounding
         border.width: 1
         border.color: Appearance.colors.colLayer0Border
-    }
 
-    ColumnLayout {
-        spacing: contentPadding
-        anchors {
-            fill: parent
-            margins: contentPadding
+        opacity: GlobalStates.settingsOpen ? 1 : 0
+        scale: GlobalStates.settingsOpen ? 1 : 0.96
+
+        Behavior on opacity {
+            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+        }
+        Behavior on scale {
+            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
         }
 
-        Keys.onPressed: event => {
+        // Consume mouse clicks inside dialog so they don't fall through to backdrop
+        MouseArea {
+            anchors.fill: parent
+            z: -1
+        }
+
+        ColumnLayout {
+            spacing: contentPadding
+            anchors {
+                fill: parent
+                margins: contentPadding
+            }
+
+            Keys.onPressed: event => {
+                if (event.key === Qt.Key_Escape) {
+                    root.hide();
+                    event.accepted = true;
+                    return;
+                }
             // Cycling only covers nav pages — hidden pages (profile, search
             // results) are reachable through their own entry points.
             if (event.modifiers === Qt.ControlModifier) {
@@ -986,6 +1055,7 @@ FloatingWindow {
         } // closes RowLayout (Window content)
 
     } // closes ColumnLayout
+    } // closes settingsDialog
 
     // PointerHandlers do not own a cursor surface, so every control underneath
     // keeps its PointingHandCursor. React on press instead of waiting for a tap

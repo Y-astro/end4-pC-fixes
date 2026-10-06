@@ -15,7 +15,9 @@ import Quickshell.Services.SystemTray
 
 MouseArea {
     id: root
-    required property LockContext context
+    required property QtObject context
+    property bool interactive: true
+    property var sampleNotifications: null
     property bool active: false
     property bool showInputField: active || context.currentText.length > 0
     readonly property bool requirePasswordToPower: Config.options.lock.security.requirePasswordToPower

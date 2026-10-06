@@ -78,10 +78,18 @@ Item {
         phoneFooter.entranceTrigger = root.entranceTrigger;
     }
 
-    Component.onCompleted: root.consumeSubPageRequest()
+    Component.onCompleted: {
+        root.activeSubPage = ""
+        root.consumeSubPageRequest()
+    }
 
     function openSubPage(url: url): void {
-        root.activeSubPage = Qt.resolvedUrl(url)
+        const u = Qt.resolvedUrl(url)
+        if (String(u).endsWith("PhoneMirrorPage.qml")) {
+            PhoneScrcpyService.openMirrorWindow()
+            return
+        }
+        root.activeSubPage = u
     }
 
     /** A sub-page asked for from outside the sidebar, which may well have been
@@ -97,6 +105,11 @@ Item {
         target: GlobalStates
         function onPhoneRequestSubPageChanged() {
             root.consumeSubPageRequest()
+        }
+        function onSidebarLeftOpenChanged() {
+            if (!GlobalStates.sidebarLeftOpen) {
+                root.activeSubPage = ""
+            }
         }
     }
 

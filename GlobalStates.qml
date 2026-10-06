@@ -21,6 +21,15 @@ Singleton {
     property bool mediaDropdownHovered: false
     property bool osdBrightnessOpen: false
     property bool osdVolumeOpen: false
+    // Policies & Phone Sidebar Integration
+    property rect policiesPointerHole: Qt.rect(0, 0, 0, 0)
+    property string policiesSurfaceNamespace: "quickshell:sidebarLeft"
+    property string policiesSurfaceScreen: ""
+    property int policiesHoldOpen: 0
+    property bool policiesPinned: false
+    property bool policiesDetached: false
+    property string policiesRequestTabIcon: ""
+    property string phoneRequestSubPage: ""
     property bool settingsOpen: false
     property bool settingsSuspendedForScreenshot: false
     property int settingsPendingPage: -1

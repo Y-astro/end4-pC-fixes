@@ -62,11 +62,11 @@ Rectangle {
     readonly property bool _micPresent: PhoneMicService.available
     readonly property bool _deviceOnline: KdeConnectService.activeReachable || KdeConnectService.adbReachable
 
-    readonly property bool embedEnabled: Config.options?.phone?.scrcpy?.embed?.enabled ?? true
+    readonly property bool embedEnabled: false
     readonly property bool mirrorRunning: KdeConnectService.scrcpyRunning || PhoneScrcpyService.mirrorRunning
     readonly property bool mirrorLaunching: KdeConnectService.scrcpyLaunching || PhoneScrcpyService.mirrorLaunching
     readonly property string mirrorError: PhoneScrcpyService.mirrorLaunchError || KdeConnectService.scrcpyLaunchError
-    readonly property bool mirrorEmbedded: root.embedEnabled && PhoneMirrorService.running
+    readonly property bool mirrorEmbedded: false
 
     readonly property string mirrorState: !root._scrcpyPresent ? "unavailable"
         : !root._deviceOnline || root.mirrorError.length > 0 ? "offline"
@@ -119,11 +119,7 @@ Rectangle {
             root._openInstallGuide(KdeConnectService.scrcpyMissingDeps, Translation.tr("scrcpy Mirror — Missing Dependencies"));
             return;
         }
-        if (root.embedEnabled) {
-            root.requestOpenSubPage(Qt.resolvedUrl("PhoneMirrorPage.qml"));
-            return;
-        }
-        // Switched off, the mirror is a toggle for a scrcpy window of its own.
+        // The mirror is a toggle for a high-performance 120Hz scrcpy window
         if (root.mirrorRunning)
             PhoneScrcpyService.stopMirroring();
         else if (!root.mirrorLaunching)
@@ -356,23 +352,21 @@ Rectangle {
                     : Translation.tr("Connect USB debugging or wireless ADB");
             }
             mainLabel: !root._scrcpyPresent ? Translation.tr("How to install")
-                : root.embedEnabled ? (root.mirrorEmbedded ? Translation.tr("Show here") : Translation.tr("Mirror here"))
                 : root.mirrorRunning ? Translation.tr("Stop Mirror") : Translation.tr("Launch 120Hz Mirror")
             mainSymbol: !root._scrcpyPresent ? "download"
-                : root.embedEnabled ? "view_sidebar"
                 : root.mirrorRunning ? "stop" : "open_in_new"
             mainEnabled: !root._scrcpyPresent || root._deviceOnline
-            showStop: root.mirrorEmbedded || (root.embedEnabled && root.mirrorRunning)
+            showStop: root.mirrorRunning
             settingsPage: "PhoneScrcpyPage.qml"
             error: root._scrcpyPresent && root._deviceOnline ? root.mirrorError.split("\n")[0] : ""
-            detail: root.mirrorEmbedded || root.mirrorRunning
-                ? [root.mirrorEmbedded ? Translation.tr("In the sidebar") : Translation.tr("In a window"),
+            detail: root.mirrorRunning
+                ? [Translation.tr("120Hz Window"),
                    Config.options.phone.scrcpy.useWireless
                        ? (KdeConnectService.pinnedAdbHost || KdeConnectService.resolvedWirelessHost || Translation.tr("Wireless"))
                        : "USB",
                    Config.options.phone.scrcpy.noAudio ? Translation.tr("no audio") : Translation.tr("audio on")].join(" · ")
                 : ""
-            dropEnabled: (root.mirrorEmbedded || root.mirrorRunning) && root._deviceOnline
+            dropEnabled: root.mirrorRunning && root._deviceOnline
             onFilesDropped: urls => {
                 for (const url of urls) {
                     const file = String(url).replace(/^file:\/\//, "");
@@ -383,8 +377,6 @@ Rectangle {
             onMainClicked: root.mirrorMain()
             onStopClicked: PhoneScrcpyService.stopMirroring()
             toggles: [
-                { icon: "view_sidebar", label: Translation.tr("In sidebar"), checked: root.embedEnabled,
-                  toggle: () => Config.options.phone.scrcpy.embed.enabled = !root.embedEnabled },
                 { icon: "mobile_off", label: Translation.tr("Screen off"), checked: Config.options.phone.scrcpy.turnScreenOff,
                   toggle: () => {
                       const next = !Config.options.phone.scrcpy.turnScreenOff;

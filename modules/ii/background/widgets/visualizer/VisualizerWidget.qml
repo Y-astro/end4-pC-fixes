@@ -17,32 +17,37 @@ AbstractBackgroundWidget {
 
     // "bars" is the original Rectangle visualizer, the others are shaders/<style>.frag.qsb
     readonly property string style: configEntry.style ?? "bars"
-    readonly property bool shaderStyle: ["aurora", "ring", "dots", "mirror"].includes(style)
+    readonly property bool shaderStyle: ["aurora", "ring", "dots", "mirror", "wuwa"].includes(style)
     readonly property bool isRing: style === "ring"
+    readonly property bool isWuwa: style === "wuwa"
+    readonly property bool isWidget: isRing || isWuwa
     readonly property bool useCoverColors: shaderStyle && (configEntry.colorSource ?? "theme") === "cover"
 
-    // Live size while the ring is being resized, written to the config on release
+    // Live size while the ring/wuwa widget is being resized, written to the config on release
     property real ringSizeOverride: -1
     readonly property real ringSize: ringSizeOverride > 0 ? ringSizeOverride : (configEntry.ringSize ?? 380)
+    property real customWidthOverride: -1
+    readonly property real customWidth: customWidthOverride > 0 ? customWidthOverride : (configEntry.customWidth ?? 860)
     readonly property real bandHeight: configEntry.height ?? 260
     readonly property real barsHeight: bandHeight
+    readonly property real widgetHeight: configEntry.height ?? 252
 
-    implicitWidth: isRing ? ringSize : screenWidth
-    implicitHeight: isRing ? ringSize : bandHeight
+    implicitWidth: isRing ? ringSize : (isWuwa ? customWidth : screenWidth)
+    implicitHeight: isRing ? ringSize : (isWuwa ? widgetHeight : bandHeight)
     width: implicitWidth
     height: implicitHeight
-    x: isRing ? targetX : 0
-    y: isRing ? targetY : screenHeight - height
-    z: isRing ? (configEntry.z ?? 15) : 1
-    draggable: isRing && placementStrategy === "free" && !Config.options.background.widgetsLocked
-    hoverEnabled: isRing
-    acceptedButtons: isRing ? (Qt.LeftButton | Qt.RightButton) : Qt.NoButton
-    showSelectionBorder: isRing && !Config.options.background.widgetsLocked
+    x: isWidget ? targetX : 0
+    y: isWidget ? targetY : screenHeight - height
+    z: isWidget ? (configEntry.z ?? 15) : 1
+    draggable: isWidget && placementStrategy === "free" && !Config.options.background.widgetsLocked
+    hoverEnabled: isWidget
+    acceptedButtons: isWidget ? (Qt.LeftButton | Qt.RightButton) : Qt.NoButton
+    showSelectionBorder: isWidget && !Config.options.background.widgetsLocked
 
     function restoreXYBinding() {
-        root.x = Qt.binding(() => root.isRing ? root.targetX : 0);
-        root.y = Qt.binding(() => root.isRing ? root.targetY : root.screenHeight - root.height);
-        root.z = Qt.binding(() => root.isRing ? (root.targetZ ?? 15) : 1);
+        root.x = Qt.binding(() => root.isWidget ? root.targetX : 0);
+        root.y = Qt.binding(() => root.isWidget ? root.targetY : root.screenHeight - root.height);
+        root.z = Qt.binding(() => root.isWidget ? (root.targetZ ?? 15) : 1);
     }
 
 
@@ -53,6 +58,7 @@ AbstractBackgroundWidget {
             case "aurora": return [c.m3primary, c.m3tertiary, c.m3secondary];
             case "ring": return [c.m3primary, c.m3tertiary, c.m3primaryContainer];
             case "dots": return [c.m3onBackground, c.m3primary, c.m3error];
+            case "wuwa": return [c.m3primary, c.m3primaryContainer, c.m3tertiary];
             default: return [c.m3primary, c.m3primaryContainer, c.m3tertiary];
         }
     }
@@ -154,14 +160,25 @@ AbstractBackgroundWidget {
     ResizeHandler {
         anchorItem: root
         hoverActive: root.containsMouse
-        locked: Config.options.background.widgetsLocked || !root.isRing
-        currentWidth: root.ringSize
-        resizeMode: "diagonal"
+        locked: Config.options.background.widgetsLocked || !root.isWidget
+        currentWidth: root.isRing ? root.ringSize : root.customWidth
+        resizeMode: root.isRing ? "diagonal" : "horizontal"
         z: 2
-        onResized: newValue => root.ringSizeOverride = Math.round(Math.min(Math.max(newValue, 150), 900))
+        onResized: newValue => {
+            if (root.isRing) {
+                root.ringSizeOverride = Math.round(Math.min(Math.max(newValue, 150), 900));
+            } else if (root.isWuwa) {
+                root.customWidthOverride = Math.round(Math.min(Math.max(newValue, 300), root.screenWidth));
+            }
+        }
         onResizeFinished: {
-            if (root.ringSizeOverride > 0) root.configEntry.ringSize = root.ringSizeOverride;
-            root.ringSizeOverride = -1;
+            if (root.isRing) {
+                if (root.ringSizeOverride > 0) root.configEntry.ringSize = root.ringSizeOverride;
+                root.ringSizeOverride = -1;
+            } else if (root.isWuwa) {
+                if (root.customWidthOverride > 0) root.configEntry.customWidth = root.customWidthOverride;
+                root.customWidthOverride = -1;
+            }
         }
     }
 

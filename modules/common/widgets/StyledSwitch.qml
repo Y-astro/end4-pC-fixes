@@ -6,11 +6,14 @@ import QtQuick.Effects
 Switch {
     id: root
     property real scale: 0.75
+    property alias sizeScale: root.scale
     implicitHeight: 30 * root.scale
     implicitWidth: 52 * root.scale
 
     property color activeColor: Appearance?.colors.colPrimaryContainer ?? "#cbc4cb"
     property color inactiveColor: Appearance?.m3colors.m3surfaceBright ?? "#3a3939"
+    property color activeThumbColor: Appearance?.colors.colPrimary ?? Appearance?.m3colors.m3onPrimary ?? "#ffffff"
+    property color inactiveThumbColor: Appearance?.m3colors.m3outline ?? "#888888"
 
     PointingHandInteraction {}
 
@@ -44,7 +47,7 @@ Switch {
         height: thumbSize
         radius: Appearance.rounding.full
 
-        color: Appearance.colors.colPrimary
+        color: root.checked ? root.activeThumbColor : root.inactiveThumbColor
 
         layer.enabled: true
         layer.effect: MultiEffect {

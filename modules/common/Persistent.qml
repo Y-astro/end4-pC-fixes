@@ -58,6 +58,32 @@ Singleton {
 
             property string hyprlandInstanceSignature: ""
 
+            property JsonObject settings: JsonObject {
+                property list<string> collapsedGroups: []
+                property bool whatsNewCollapsed: true
+                property JsonObject fonts: JsonObject {
+                    property string main: "Google Sans Flex"
+                    property string numbers: "Google Sans Flex"
+                    property string title: "Google Sans Flex"
+                    property string iconNerd: "JetBrainsMono Nerd Font"
+                    property string monospace: "JetBrainsMono Nerd Font"
+                    property string reading: "Readex Pro"
+                    property string expressive: "Space Grotesk"
+                    property bool roundnessFull: false
+                }
+            }
+
+            property JsonObject search: JsonObject {
+                property list<var> aliases: []
+                property list<string> recentEmojis: []
+                property list<string> recentQueries: []
+                property list<string> pinnedEntries: []
+                property list<var> panelUsage: []
+                property list<var> calculatorHistory: []
+                property real exchangeRatesUpdatedAt: 0
+                property list<var> resultKeybinds: []
+            }
+
             property JsonObject ai: JsonObject {
                 property string model: "gemini-2.5-flash"
                 property real temperature: 0.5

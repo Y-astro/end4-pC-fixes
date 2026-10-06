@@ -14,15 +14,24 @@ StyledImage {
 
     property bool generateThumbnail: true
     required property string sourcePath
-    property string thumbnailSizeName: Images.thumbnailSizeNameForDimensions(sourceSize.width, sourceSize.height)
+    readonly property real thumbnailDevicePixelRatio: (QsWindow.window as QsWindow)?.devicePixelRatio ?? 1
+    property string thumbnailSizeName: Images.thumbnailSizeNameForDimensions(
+        Math.max(1, Math.ceil(width * thumbnailDevicePixelRatio)),
+        Math.max(1, Math.ceil(height * thumbnailDevicePixelRatio))
+    )
+    readonly property bool sourceIsVideo: /\.(mp4|mkv|webm|avi|mov|m4v|ogv|gif)$/i.test(sourcePath)
+    property var thumbnailService: null
+    readonly property bool thumbnailGenerationRunning: thumbnailGeneration.running
+    property bool reloadRequested: false
     property string thumbnailPath: {
-        if (sourcePath.length == 0) return;
+        if (sourcePath.length == 0)
+            return "";
         const resolvedUrlWithoutFileProtocol = FileUtils.trimFileProtocol(`${Qt.resolvedUrl(sourcePath)}`);
         const encodedUrlWithoutFileProtocol = resolvedUrlWithoutFileProtocol.split("/").map(part => encodeURIComponent(part)).join("/");
         const md5Hash = Qt.md5(`file://${encodedUrlWithoutFileProtocol}`);
         return `${Directories.genericCache}/thumbnails/${thumbnailSizeName}/${md5Hash}.png`;
     }
-    source: thumbnailPath
+    source: reloadRequested ? "" : thumbnailPath
 
     asynchronous: true
     smooth: true
@@ -33,25 +42,80 @@ StyledImage {
         animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
     }
 
-    onSourceSizeChanged: {
-        if (!root.generateThumbnail) return;
+    // Generated lazily: only when the thumbnail fails to load, once per thumbnail path,
+    // and not while the service's folder run may still make it. A card whose thumbnail
+    // exists spawns nothing, which matters for grids of thousands of wallpapers.
+    property string attemptedThumbnailPath: ""
+    readonly property bool serviceMayGenerate: root.thumbnailService !== null
+        && (root.thumbnailService.thumbnailGenerationRunning ?? false)
+
+    function startThumbnailGeneration() {
+        if (!root.generateThumbnail || root.thumbnailPath.length === 0
+                || root.status !== Image.Error || root.serviceMayGenerate
+                || root.attemptedThumbnailPath === root.thumbnailPath)
+            return;
+        root.attemptedThumbnailPath = root.thumbnailPath;
         thumbnailGeneration.running = false;
         thumbnailGeneration.running = true;
     }
+
+    onStatusChanged: if (status === Image.Error) root.startThumbnailGeneration()
+    onGenerateThumbnailChanged: root.startThumbnailGeneration()
+
+    function reloadThumbnail() {
+        if (!root.thumbnailPath)
+            return;
+
+        root.cache = false;
+        root.reloadRequested = true;
+        Qt.callLater(function() {
+            root.reloadRequested = false;
+            root.cache = true;
+        });
+    }
+
+    Connections {
+        target: root.thumbnailService
+        enabled: root.thumbnailService !== null
+        ignoreUnknownSignals: true
+
+        // Files the run made were reloaded one by one; at the end only a card still
+        // without its thumbnail needs another look (or its own generation).
+        function onThumbnailGenerated(directory) {
+            if (root.status === Image.Ready)
+                return;
+            if (FileUtils.parentDirectory(root.sourcePath) === FileUtils.trimFileProtocol(directory))
+                root.reloadThumbnail();
+            else
+                root.startThumbnailGeneration();
+        }
+
+        function onThumbnailGeneratedFile(filePath) {
+            if (FileUtils.trimFileProtocol(root.sourcePath) === filePath)
+                root.reloadThumbnail();
+        }
+    }
+
     Process {
         id: thumbnailGeneration
         command: {
+            if (!root.generateThumbnail || root.sourcePath.length === 0)
+                return ["true"];
+
             const maxSize = Images.thumbnailSizes[root.thumbnailSizeName];
-            const cleanSource = FileUtils.trimFileProtocol(root.sourcePath);
-            const cleanThumb = FileUtils.trimFileProtocol(root.thumbnailPath);
-            return ["bash", "-c", 
-                `[ -f '${cleanThumb}' ] && exit 0 || { case '${cleanSource.toLowerCase()}' in *.mp4|*.webm|*.mkv|*.avi|*.mov) ffmpeg -y -i '${cleanSource}' -vframes 1 -update 1 -vf 'scale=${maxSize}:${maxSize}:force_original_aspect_ratio=decrease' '${cleanThumb}' 2>/dev/null ;; *) magick '${cleanSource}' -resize ${maxSize}x${maxSize} '${cleanThumb}' ;; esac && exit 1; }`
-            ]
+            const sourcePath = StringUtils.shellSingleQuoteEscape(FileUtils.trimFileProtocol(root.sourcePath));
+            const thumbnailPath = StringUtils.shellSingleQuoteEscape(FileUtils.trimFileProtocol(root.thumbnailPath));
+            const thumbnailDirectory = StringUtils.shellSingleQuoteEscape(FileUtils.parentDirectory(FileUtils.trimFileProtocol(root.thumbnailPath)));
+
+            if (root.sourceIsVideo) {
+                return ["bash", "-c", `mkdir -p '${thumbnailDirectory}' && [ -f '${thumbnailPath}' ] && exit 0 || { command -v ffmpeg >/dev/null 2>&1 && ffmpeg -v error -y -i '${sourcePath}' -frames:v 1 -vf 'scale=${maxSize}:${maxSize}:force_original_aspect_ratio=decrease' '${thumbnailPath}' && exit 1; exit 2; }`];
+            }
+
+            return ["bash", "-c", `mkdir -p '${thumbnailDirectory}' && [ -f '${thumbnailPath}' ] && exit 0 || { magick '${sourcePath}' -resize ${maxSize}x${maxSize} '${thumbnailPath}' && exit 1; }`];
         }
         onExited: (exitCode, exitStatus) => {
             if (exitCode === 1) { // Force reload if thumbnail had to be generated
-                root.source = "";
-                root.source = root.thumbnailPath; // Force reload
+                root.reloadThumbnail();
             }
         }
     }

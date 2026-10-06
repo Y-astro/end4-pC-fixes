@@ -180,8 +180,18 @@ Item {
         anchors.fill: barBackground
         anchors.margins: root.barPadding
 
+        // ── Island Filler Layer (Adaptive multi-harmonic waves / stream between floating islands) ──
+        IslandFiller {
+            id: islandFiller
+            leftSection: leftSection
+            centerSection: absoluteCenter
+            rightSection: rightSection
+        }
+
+
         // Left
         Item {
+            id: leftSection
             anchors.left: parent.left
             anchors.leftMargin: root.isMaterial ? (Config.options.hyprland.general.gapsOut || 5) : (Config.options.bar.cornerStyle === 1 ? 4 : 8)
             anchors.top: parent.top
@@ -370,6 +380,7 @@ Item {
 
         // Right
         Item {
+            id: rightSection
             anchors.right: parent.right
             anchors.rightMargin: root.isMaterial ? (Config.options.hyprland.general.gapsOut || 5) : (Config.options.bar.cornerStyle === 1 ? 4 : 8)
             anchors.top: parent.top
@@ -467,6 +478,60 @@ Item {
                         }
                     }
                 }
+            }
+        }
+
+        FocusedScrollMouseArea {
+            id: barLeftSideMouseArea
+            z: -1
+            anchors {
+                top: parent.top
+                bottom: parent.bottom
+                left: parent.left
+                right: absoluteCenter.left
+            }
+            onScrollDown: if (Config.options.bar.enableBrightnessScroll) Brightness.decreaseBrightness()
+            onScrollUp:   if (Config.options.bar.enableBrightnessScroll) Brightness.increaseBrightness()
+            onMovedAway:  GlobalStates.osdBrightnessOpen = false
+            onPressed: event => {
+                if (event.button === Qt.LeftButton && Config.options.bar.sidebarClickOpen)
+                    GlobalStates.toggleLeftSidebar(root.screen?.name);
+            }
+
+            ScrollHint {
+                reveal: barLeftSideMouseArea.hovered && Config.options.bar.enableBrightnessScroll
+                icon: (typeof Hyprsunset !== "undefined" && Hyprsunset.gamma === 100) ? "light_mode" : "wb_twilight"
+                tooltipText: Translation.tr("Scroll to change brightness")
+                side: "left"
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
+
+        FocusedScrollMouseArea {
+            id: barRightSideMouseArea
+            z: -1
+            anchors {
+                top: parent.top
+                bottom: parent.bottom
+                left: absoluteCenter.right
+                right: parent.right
+            }
+            onScrollDown: if (Config.options.bar.enableVolumeScroll) Audio.decrementVolume()
+            onScrollUp:   if (Config.options.bar.enableVolumeScroll) Audio.incrementVolume()
+            onMovedAway:  GlobalStates.osdVolumeOpen = false
+            onPressed: event => {
+                if (event.button === Qt.LeftButton && Config.options.bar.sidebarClickOpen)
+                    GlobalStates.toggleRightSidebar(root.screen?.name);
+            }
+
+            ScrollHint {
+                reveal: barRightSideMouseArea.hovered && Config.options.bar.enableVolumeScroll
+                icon: "volume_up"
+                tooltipText: Translation.tr("Scroll to change volume")
+                side: "right"
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
             }
         }
     }

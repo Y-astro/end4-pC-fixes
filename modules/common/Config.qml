@@ -12,6 +12,9 @@ Singleton {
     property bool ready: false
     property int readWriteDelay: 50 // milliseconds
     property bool blockWrites: false
+    property bool configMalformed: false
+    property string configHealthState: "ok"
+    property list<string> configHealthKeys: []
 
     function setNestedValue(nestedKey, value) {
         let keys = nestedKey.split(".");
@@ -79,6 +82,16 @@ Singleton {
             id: configOptionsJsonAdapter
 
             property string panelFamily: "ii" // "ii", "waffle"
+
+            property JsonObject userProfile: JsonObject {
+                property string imageStyle: "initial" // "initial", "expressive", "custom"
+                property string imagePath: Directories.userProfileImagePath
+                property string customName: ""
+                property string customGreeting: ""
+                property string customBio: ""
+                property string avatarShape: "Cookie9Sided"
+                property string avatarColor: "primary"
+            }
 
             property JsonObject policies: JsonObject {
                 property int ai: 1 // 0: No | 1: Yes | 2: Local
@@ -345,11 +358,12 @@ Singleton {
                         property real x: 0
                         property real y: 0
                         property real z: 1
-                        property string style: "bars" // "bars", "mirror", "aurora", "ring", "dots"
+                        property string style: "bars" // "bars", "mirror", "aurora", "ring", "dots", "wuwa"
                         property string colorSource: "theme" // "theme", "cover"
                         property real sensitivity: 1
-                        property int height: 260 // bars, mirror, aurora, dots
+                        property int height: 260 // bars, mirror, aurora, dots, wuwa
                         property int ringSize: 380
+                        property int customWidth: 860
                     }
 
                     property JsonObject visualizer2: JsonObject {
@@ -358,11 +372,12 @@ Singleton {
                         property real x: 0
                         property real y: 0
                         property real z: 15
-                        property string style: "ring" // "bars", "mirror", "aurora", "ring", "dots"
+                        property string style: "ring" // "bars", "mirror", "aurora", "ring", "dots", "wuwa"
                         property string colorSource: "theme" // "theme", "cover"
                         property real sensitivity: 1
-                        property int height: 260 // bars, mirror, aurora, dots
+                        property int height: 260 // bars, mirror, aurora, dots, wuwa
                         property int ringSize: 380
+                        property int customWidth: 860
                     }
 
                     property JsonObject customImage: JsonObject {
@@ -446,11 +461,17 @@ Singleton {
                 property JsonObject autoHide: JsonObject {
                     property bool enable: false
                     property int hoverRegionWidth: 2
+                    property int hoverDelay: 0
+                    property string mode: "instant"
                     property bool pushWindows: false
                     property JsonObject showWhenPressingSuper: JsonObject {
                         property bool enable: true
                         property int delay: 140
                     }
+                }
+                property JsonObject sizes: JsonObject {
+                    property int height: 40
+                    property int width: 44
                 }
                 property bool showFrame: false
                 property real frameThickness: 4
@@ -459,6 +480,19 @@ Singleton {
                 property bool centerOnlyReserveFrame: false
                 property bool bottom: false // Instead of top
                 property int cornerStyle: 0 // 0: Hug | 1: Float | 2: Plain rectangle
+                property int barBackgroundStyle: 0 // 0: Transparent | 1: Visible | 2: Adaptive | 3: Islands
+                property int barGroupStyle: 0
+                property bool dropShadow: false
+                property bool transparentGlow: false
+                property bool useMaterialSymbolForTopLeftIcon: false
+                property bool expressiveColors: false
+                property string expressiveColorTheme: "monochrome"
+                property bool expressiveGroupColor: false
+                property bool enableVolumeScroll: true
+                property bool enableBrightnessScroll: true
+                property bool sidebarClickOpen: true
+                property bool onlyShowOnSingleMonitor: false
+                property string singleMonitorName: ""
                 property string groupColor: "layer1"
                 property bool floatStyleShadow: true // Show shadow behind bar when cornerStyle == 1 (Float)
                 property string borderless: "pills"
@@ -466,6 +500,9 @@ Singleton {
                 property bool showBackground: true
                 property bool verbose: true
                 property bool vertical: false
+                property string visualizerStyle: "wuwa" // "wuwa", "bars"
+                property int visualizerWidth: 130
+                property real visualizerSensitivity: 1
                 property JsonObject resources: JsonObject {
                     property string style: "filled"
                     property bool showValue: false
@@ -483,15 +520,41 @@ Singleton {
                     property string visualizerStyle: "dots" // "dots", "wave", "none"
                     property bool showMediaControls: false
                 }
+                property bool dynamicIslandLoadBalance: false
+                property int dynamicIslandSpacingHorizontal: 4
+                property int dynamicIslandSpacingVertical: 2
+                property JsonObject floatingNotch: JsonObject {
+                    property bool enable: false
+                    property bool centerInBar: false
+                }
                 property JsonObject divider: JsonObject {
                     property string style: "rect" // rect - dot - space
                     property int spacing: 20
+                }
+                property JsonObject islandFiller: JsonObject {
+                    property bool enable: true
+                    property string style: "waves" // "waves", "stream", "bridge", "none"
+                    property real opacity: 0.85
                 }
 
                 property JsonObject layouts: JsonObject {
                     property list<string> leftLayout: ["launcherButton", "workspaces", "activeWindow"]
                     property list<string> middleLayout: ["clockWidget"]
                     property list<string> rightLayout: ["sysTray", "utilButtons", "systemIcons", "powerButton"]
+                    property list<var> left: [
+                        { "id": "launcherButton", "visible": true, "centered": false },
+                        { "id": "workspaces", "visible": true, "centered": false },
+                        { "id": "activeWindow", "visible": true, "centered": false }
+                    ]
+                    property list<var> center: [
+                        { "id": "clockWidget", "visible": true, "centered": false }
+                    ]
+                    property list<var> right: [
+                        { "id": "sysTray", "visible": true, "centered": false },
+                        { "id": "utilButtons", "visible": true, "centered": false },
+                        { "id": "systemIcons", "visible": true, "centered": false },
+                        { "id": "powerButton", "visible": true, "centered": false }
+                    ]
                 }
                 
                 property list<string> screenList: [] // List of names, like "eDP-1", find out with 'hyprctl monitors' command
@@ -531,7 +594,17 @@ Singleton {
                     }
                 }
                 property JsonObject tooltips: JsonObject {
+                    property bool enableTooltips: true
+                    property bool enablePopups: true
                     property bool clickToShow: false
+                    property bool compactPopups: false
+                    property real popupScaleMultiplier: 1.0
+                    property int closeDelay: 50
+                    property bool enableColorPickerPopup: true
+                    property bool enableBluetoothConnectionPopup: true
+                    property bool enableDisplayModesPopup: true
+                    property bool displayModesOnHotplug: true
+                    property bool enableKeyboardLayoutTransitionPopup: true
                 }
                 property JsonObject media: JsonObject {
                     property string preferredPlayer: ""
@@ -723,10 +796,87 @@ Singleton {
             }
 
             property JsonObject search: JsonObject {
+                property bool enableSystemControls: true
+                property bool enableMathPreview: true
+                property JsonObject appearance: JsonObject {
+                    property bool accentPanels: true
+                    property real accentStrength: 0.12
+                    property bool showKeyHints: true
+                    property bool showKeyHintBar: true
+                    property int panelWidth: 860
+                    property int panelBodyHeight: 420
+                }
+                property JsonObject clipboard: JsonObject {
+                    property int panelWidth: 860
+                    property real listColumnRatio: 0.40
+                    property bool showMetadata: true
+                    property int imageHeight: 200
+                    property int previewFontSize: 12
+                    property bool enableSloppySearch: false
+                }
+                property JsonObject fileBrowser: JsonObject {
+                    property int panelWidth: 1120
+                }
+                property JsonObject fileContent: JsonObject {
+                    property int maxResults: 40
+                    property int maxFileSizeMb: 8
+                    property int minimumQueryLength: 3
+                }
+                property JsonObject suggestions: JsonObject {
+                    property bool enable: false
+                    property int maxSuggestionsPerSection: 5
+                }
+                property bool showSettings: false
+                property bool alwaysListApps: false
+                property bool levenshtein: false
+                property bool frecency: true
+                property real fuzzyThreshold: 0.35
+                property real fuzzyRelativeCutoff: 0.35
+                property list<var> aliases: []
                 property int nonAppResultDelay: 30 // This prevents lagging when typing
                 property string engineBaseUrl: "https://www.google.com/search?q="
                 property list<string> excludedSites: ["quora.com", "facebook.com"]
                 property bool sloppy: false // Uses levenshtein distance based scoring instead of fuzzy sort. Very weird.
+                property JsonObject modules: JsonObject {
+                    property bool clipboard: true
+                    property bool bluetooth: true
+                    property bool translator: true
+                    property bool mediaDownloader: true
+                    property bool materialSymbols: true
+                    property bool typingTest: true
+                    property bool speedTest: true
+                    property bool grammar: true
+                    property bool commands: true
+                    property bool emoji: true
+                    property JsonObject emojis: JsonObject {
+                        property bool enable: true
+                        property string skinTone: "none"
+                        property int gridColumns: 8
+                        property bool showRecents: true
+                        property string defaultCategory: "all"
+                    }
+                    property bool fileBrowser: true
+                    property bool fonts: true
+                    property bool gifs: true
+                    property bool screenshots: true
+                    property bool tasks: true
+                    property bool timers: true
+                    property bool tools: true
+                    property bool windowManagement: true
+                    property JsonObject settingsToggles: JsonObject {
+                        property bool enable: true
+                        property bool showPages: true
+                        property int maxInlineResults: 0
+                    }
+                }
+                property JsonObject speedTest: JsonObject {
+                    property int duration: 10
+                    property string mode: "both"
+                    property string unit: "mbps"
+                }
+                property JsonObject ai: JsonObject {
+                    property string trigger: "suggest"
+                }
                 property JsonObject prefix: JsonObject {
                     property bool showDefaultActionsWithoutPrefix: true
                     property string action: "/"
@@ -743,6 +893,14 @@ Singleton {
                     property string imageSearchEngineBaseUrl: "https://lens.google.com/uploadbyurl?url="
                     property bool useCircleSelection: false
                 }
+            }
+
+            property JsonObject mediaDownloader: JsonObject {
+                property bool enabled: true
+                property string downloadPath: FileUtils.trimFileProtocol(`${Directories.home}/Downloads`)
+                property int maxConcurrent: 2
+                property string defaultFormat: "best"
+                property bool embedMetadata: true
             }
 
             property JsonObject sidebar: JsonObject {

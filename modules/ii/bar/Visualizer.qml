@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Io
-import Quickshell.Services.Mpris
+import Qt5Compat.GraphicalEffects
+import Quickshell
 import qs
 import qs.services
 import qs.modules.common
@@ -12,26 +12,16 @@ Item {
     property bool vertical: Config.options.bar.vertical
     property bool isMaterial: Config.options.bar.cornerStyle === 3
     property bool mirrored: false
-    readonly property MprisPlayer activePlayer: MprisController.activePlayer
-    readonly property bool isPlaying: activePlayer?.isPlaying ?? false
-    readonly property list<real> points: GlobalStates.visualizerPoints
-    property int barCount: 20
-    property real dotSize: 3
-    property real dotSpacing: 3
-    property real maxBarHeight: (vertical
-        ? Appearance.sizes.verticalBarWidth
-        : Appearance.sizes.barHeight) * 0.7
-    property real maxVisualizerValue: 1000
+
+    // Target dimensions for the tacet mark inside the bar pill
+    property real visualizerWidth: 105
+    property real visualizerHeight: 30
 
     implicitWidth: vertical
         ? Appearance.sizes.verticalBarWidth
-        : (isMaterial
-            ? barsRow.implicitWidth + 16
-            : barCount * (dotSize + dotSpacing))
+        : (isMaterial ? visualizerWidth + 20 : visualizerWidth)
     implicitHeight: vertical
-        ? (isMaterial
-            ? barsColumn.implicitHeight + 16
-            : barCount * (dotSize + dotSpacing))
+        ? (isMaterial ? visualizerWidth + 20 : visualizerWidth)
         : Appearance.sizes.barHeight
 
     transform: Scale {
@@ -39,60 +29,113 @@ Item {
         origin.x: root.width / 2
     }
 
-
-    Row {
-        id: barsRow
-        visible: !root.vertical
+    Item {
+        id: container
         anchors.centerIn: parent
-        spacing: root.dotSpacing
+        anchors.verticalCenterOffset: 0
+        width: root.visualizerWidth
+        height: root.visualizerHeight
+        rotation: root.vertical ? 90 : 0
 
-        Repeater {
-            model: root.barCount
-            Rectangle {
-                required property int index
-                width: root.dotSize
-                property real pointValue: {
-                    if (!root.isPlaying || root.points.length === 0) return root.dotSize
-                    const idx = Math.floor(index * root.points.length / root.barCount)
-                    const v = root.points[idx] ?? 0
-                    return Math.max(root.dotSize, (v / root.maxVisualizerValue) * root.maxBarHeight)
-                }
-                height: pointValue
-                radius: width / 2
-                anchors.verticalCenter: parent.verticalCenter
-                color: Appearance.colors.colOnLayer0
-                opacity: root.isPlaying ? 0.85 : 0.3
-                Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 300 } }
+        // Subtle floating bob
+        SequentialAnimation on anchors.verticalCenterOffset {
+            loops: Animation.Infinite
+            running: true
+            NumberAnimation { to: -1.5; duration: 1800; easing.type: Easing.InOutSine }
+            NumberAnimation { to: 1.5; duration: 1800; easing.type: Easing.InOutSine }
+        }
+
+        transform: Scale {
+            id: breathScale
+            origin.x: container.width / 2
+            origin.y: container.height / 2
+
+            // Vertical needle breathing: stretches and flexes
+            SequentialAnimation on yScale {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation { to: 1.08; duration: 1500; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.92; duration: 1500; easing.type: Easing.InOutSine }
+            }
+
+            // Horizontal breathing: subtle counter-expansion
+            SequentialAnimation on xScale {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation { to: 1.04; duration: 2000; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.96; duration: 2000; easing.type: Easing.InOutSine }
             }
         }
-    }
 
-    Column {
-        id: barsColumn
-        visible: root.vertical
-        anchors.centerIn: parent
-        spacing: root.dotSpacing
+        // Texture provider: high-resolution SVG render of the authentic WuWa Tacet Mark
+        Image {
+            id: tacetSource
+            source: Qt.resolvedUrl("../../../assets/icons/tacet-mark.svg")
+            anchors.fill: parent
+            fillMode: Image.PreserveAspectFit
+            sourceSize.width: 496
+            sourceSize.height: 165
+            smooth: true
+            mipmap: true
+        }
 
-        Repeater {
-            model: root.barCount
-            Rectangle {
-                required property int index
-                height: root.dotSize
-                property real pointValue: {
-                    if (!root.isPlaying || root.points.length === 0) return root.dotSize
-                    const rawIndex = root.mirrored ? (root.barCount - 1 - index) : index
-                    const idx = Math.floor(rawIndex * root.points.length / root.barCount)
-                    const v = root.points[idx] ?? 0
-                    return Math.max(root.dotSize, (v / root.maxVisualizerValue) * root.maxBarHeight)
-                }
-                width: pointValue
-                radius: height / 2
-                anchors.horizontalCenter: parent.horizontalCenter
-                color: Appearance.colors.colPrimary
-                opacity: root.isPlaying ? 0.85 : 0.3
-                Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
-                Behavior on opacity { NumberAnimation { duration: 300 } }
+        ShaderEffectSource {
+            id: tacetSourceItem
+            sourceItem: tacetSource
+            hideSource: true
+            live: false
+        }
+
+        // Layer 1: Soft luminous aura / glow behind the tacet mark
+        Image {
+            id: auraImage
+            source: Qt.resolvedUrl("../../../assets/icons/tacet-mark.svg")
+            anchors.fill: parent
+            fillMode: Image.PreserveAspectFit
+            sourceSize.width: 496
+            sourceSize.height: 165
+            smooth: true
+        }
+
+        ColorOverlay {
+            id: auraOverlay
+            anchors.fill: auraImage
+            source: auraImage
+            color: Appearance.colors.colPrimary
+            scale: 1.08
+
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                running: true
+                NumberAnimation { to: 0.55; duration: 1400; easing.type: Easing.InOutQuad }
+                NumberAnimation { to: 0.18; duration: 1400; easing.type: Easing.InOutQuad }
+            }
+        }
+
+        FastBlur {
+            anchors.fill: auraOverlay
+            source: auraOverlay
+            radius: 8
+            opacity: 0.8
+        }
+
+        // Layer 2: Sharp animated tacet mark with resonant energy wave & highlight crest
+        ShaderEffect {
+            id: animatedShader
+            anchors.fill: parent
+
+            property var source: tacetSourceItem
+            property real time: 0.0
+            property vector2d resolution: Qt.vector2d(width, height)
+            property color colorPrimary: Appearance.colors.colPrimary
+            property color colorAccent: Appearance.m3colors.m3tertiary
+
+            fragmentShader: Qt.resolvedUrl("shaders/tacet_animated.frag.qsb")
+
+            FrameAnimation {
+                id: ticker
+                running: true
+                onTriggered: animatedShader.time += Math.min(frameTime, 0.1)
             }
         }
     }

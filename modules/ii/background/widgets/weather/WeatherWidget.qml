@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Io
 import qs
 import qs.services
 import qs.modules.common
@@ -7,11 +8,20 @@ import qs.modules.common.functions
 import qs.modules.common.widgets
 import qs.modules.common.widgets.widgetCanvas
 import qs.modules.ii.background.widgets
+import "WeatherAstronomy.js" as Astro
 
 AbstractBackgroundWidget {
     id: root
     configEntryName: "weather"
     hoverEnabled: true
+
+    property real simulatedHour: -1
+    property real simulatedTemp: -999
+    property real simulatedMoonFrac: -1
+    property bool simulatedMoonWaxing: true
+    readonly property var solarInfo: Astro.getSolarTimes(Weather.data, new Date(), root.simulatedHour)
+    readonly property bool isDayTime: solarInfo.isDay
+    readonly property var moonData: root.simulatedMoonFrac >= 0 ? ({ fraction: root.simulatedMoonFrac, waxing: root.simulatedMoonWaxing, name: "Simulated Moon" }) : Astro.getMoonPhase(new Date())
 
     readonly property real cardSpacing: 12
     readonly property real singleWidth: 132
@@ -78,6 +88,45 @@ AbstractBackgroundWidget {
             visible: Config.options.background.widgets.blurWidgets 
         }
 
+        WeatherCardEffects {
+            id: weatherFx
+            anchors.fill: parent
+            cardRadius: card.radius
+            weatherCode: Weather.data?.wCode ?? 800
+            weatherDescription: Weather.data?.description ?? ""
+            simulatedHour: root.simulatedHour
+            simulatedTemp: root.simulatedTemp
+            primaryColor: Appearance.colors.colPrimary
+            onContainerColor: Appearance.colors.colOnPrimaryContainer
+            sunX: root.sizeMode === "1x2" ? 60 : (root.sizeMode === "1x1" ? width - 31 : width - 40)
+            sunY: root.sizeMode === "1x2" ? 60 : (root.sizeMode === "1x1" ? 31 : 40)
+            visible: Config.options?.background?.widgets?.weather?.weatherEffects ?? true
+        }
+
+        IpcHandler {
+            target: "weatherWidget"
+            function setCondition(cond: string): void {
+                weatherFx.forcedCondition = cond;
+            }
+            function setTimeHour(h: real): void {
+                root.simulatedHour = h;
+            }
+            function setSimulatedTemp(t: real): void {
+                root.simulatedTemp = t;
+            }
+            function setMoonPhase(frac: real, waxing: bool): void {
+                root.simulatedMoonFrac = frac;
+                root.simulatedMoonWaxing = waxing;
+            }
+            function resetAll(): void {
+                weatherFx.forcedCondition = "";
+                root.simulatedHour = -1;
+                root.simulatedTemp = -999;
+                root.simulatedMoonFrac = -1;
+                root.simulatedMoonWaxing = true;
+            }
+        }
+
         Loader {
             anchors.fill: parent
             sourceComponent: {
@@ -101,14 +150,23 @@ AbstractBackgroundWidget {
                 MaterialShapeWrappedMaterialSymbol {
                     Layout.alignment: Qt.AlignRight
                     shape: MaterialShape.Shape.Cookie12Sided
-                    color: Appearance.colors.colPrimary
+                    color: root.isDayTime ? Appearance.colors.colPrimary : (Appearance.colors.colSurfaceVariant ?? Appearance.colors.colSecondaryContainer)
                     colSymbol: Appearance.colors.colOnPrimary
-                    text: Icons.getWeatherIcon(Weather.data.wCode) ?? "cloud"
+                    text: !root.isDayTime ? "" : (Icons.getWeatherIcon(Weather.data.wCode) ?? "cloud")
                     iconSize: 18
                     fill: 1
                     padding: 6
                     implicitWidth: 34
                     implicitHeight: 34
+
+                    WeatherMoonDisc {
+                        anchors.centerIn: parent
+                        width: 18
+                        height: 18
+                        visible: !root.isDayTime
+                        frac: root.moonData.fraction
+                        waxing: root.moonData.waxing
+                    }
                 }
 
                 Item { Layout.fillHeight: true }
@@ -157,7 +215,18 @@ AbstractBackgroundWidget {
                         MaterialSymbol {
                             Layout.alignment: Qt.AlignHCenter
                             iconSize: 46
-                            text: Icons.getWeatherIcon(Weather.data.wCode) ?? "cloud"
+                            text: !root.isDayTime ? "" : (Icons.getWeatherIcon(Weather.data.wCode) ?? "cloud")
+                            color: Appearance.colors.colOnPrimary
+                            visible: root.isDayTime
+                        }
+
+                        WeatherMoonDisc {
+                            Layout.alignment: Qt.AlignHCenter
+                            width: 46
+                            height: 46
+                            visible: !root.isDayTime
+                            frac: root.moonData.fraction
+                            waxing: root.moonData.waxing
                             color: Appearance.colors.colOnPrimary
                         }
                         StyledText {
@@ -287,14 +356,23 @@ AbstractBackgroundWidget {
                         Layout.topMargin: -5
                         Layout.alignment: Qt.AlignVCenter
                         shape: MaterialShape.Shape.Cookie12Sided
-                        color: Appearance.colors.colPrimary
+                        color: root.isDayTime ? Appearance.colors.colPrimary : (Appearance.colors.colSurfaceVariant ?? Appearance.colors.colSecondaryContainer)
                         colSymbol: Appearance.colors.colOnPrimary
-                        text: Icons.getWeatherIcon(Weather.data.wCode) ?? "cloud"
+                        text: !root.isDayTime ? "" : (Icons.getWeatherIcon(Weather.data.wCode) ?? "cloud")
                         iconSize: 24
                         fill: 1
                         padding: 10
                         implicitWidth: 50
                         implicitHeight: 50
+
+                        WeatherMoonDisc {
+                            anchors.centerIn: parent
+                            width: 24
+                            height: 24
+                            visible: !root.isDayTime
+                            frac: root.moonData.fraction
+                            waxing: root.moonData.waxing
+                        }
                     }
                 }
 
@@ -488,14 +566,23 @@ AbstractBackgroundWidget {
                         Layout.alignment: Qt.AlignVCenter
                         Layout.topMargin: -10
                         shape: MaterialShape.Shape.Cookie12Sided
-                        color: Appearance.colors.colPrimary
+                        color: root.isDayTime ? Appearance.colors.colPrimary : (Appearance.colors.colSurfaceVariant ?? Appearance.colors.colSecondaryContainer)
                         colSymbol: Appearance.colors.colOnPrimary
-                        text: Icons.getWeatherIcon(Weather.data.wCode) ?? "cloud"
+                        text: !root.isDayTime ? "" : (Icons.getWeatherIcon(Weather.data.wCode) ?? "cloud")
                         iconSize: 26
                         fill: 1
                         padding: 11
                         implicitWidth: 52
                         implicitHeight: 52
+
+                        WeatherMoonDisc {
+                            anchors.centerIn: parent
+                            width: 26
+                            height: 26
+                            visible: !root.isDayTime
+                            frac: root.moonData.fraction
+                            waxing: root.moonData.waxing
+                        }
                     }
                 }
 

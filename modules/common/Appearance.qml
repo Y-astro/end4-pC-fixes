@@ -14,6 +14,7 @@ Singleton {
     property QtObject font
     property QtObject sizes
     property string syntaxHighlightingTheme
+    readonly property int windowRounding: rounding?.windowRounding ?? 18
 
     // Transparency. The quadratic functions were derived from analysis of hand-picked transparency values.
     ColorQuantizer {

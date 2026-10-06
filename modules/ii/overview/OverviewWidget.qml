@@ -1,4 +1,3 @@
-
 pragma ComponentBehavior: Bound
 import qs
 import qs.services
@@ -14,74 +13,305 @@ import Quickshell.Hyprland
 
 Item {
     id: root
-    required property var screen
-    readonly property HyprlandMonitor monitor: Hyprland.monitorFor(screen)
+    // Every motion in the overview and its panels answers to one switch:
+    // Settings -> Overview -> Animation style -> None.
+    readonly property bool animationsDisabled: Config.options.overview.animationStyle === "none"
+    property bool hyprscrollingEnabled: false //FIXME
+    readonly property bool enableManualScale: Config.options.overview.enableManualScale ?? false
+    readonly property bool enableCascade: !root.animationsDisabled && !root.suppressEntrance
+        && (Config.options.overview.enableCascadeAnimation ?? true)
+    readonly property real autoScaleFactor: Config.options.overview.autoScaleFactor ?? 1.0
+
+    // ── Layout, overridable by the host ──────────────────────────────────────
+    /**
+     * The grid and its scale normally come straight from the user's Overview
+     * settings. A host that has its own fixed layout - the Dynamic Island, which
+     * shows a small 2x3 grid whatever the desktop overview is set to - overrides
+     * them here rather than writing to the settings everyone else reads.
+     */
+    property int gridRows: Config.options.overview.rows
+    property int gridColumns: Config.options.overview.columns
+    /** Greater than zero pins the scale, ignoring both automatic and manual scaling. */
+    property real fixedScale: 0
+    /** The host plays the entrance itself, so the overview does not play its own. */
+    property bool suppressEntrance: false
+    /**
+     * Drawn on the host's own surface rather than on a panel of its own.
+     *
+     * Inside the Dynamic Island the grid is part of the island's body, so a second
+     * rounded rectangle with its own colour and its own shadow inside it read as a
+     * panel stacked on a panel. Hosted, the background and shadow go and the widget
+     * measures itself with no elevation margin around it.
+     */
+    property bool hosted: false
+    // One clock drives both the workspace cells and their window previews.
+    // The previous implementation created a timer, animation and two signal
+    // connections for every delegate, which made opening the overview compete
+    // with the GNOME-like background and with search input.
+    readonly property int cascadeDelayBase: root.hosted ? 20 : 80
+    readonly property int cascadeDelayStep: root.hosted ? 25 : 55
+    readonly property int cascadeItemDuration: Math.round((root.hosted ? 260 : 380) * Appearance.animMultiplier)
+    readonly property int cascadeDuration: cascadeDelayBase
+        + Math.max(0, workspacesShown - 1) * cascadeDelayStep
+        + cascadeItemDuration
+    property real cascadeClock: 1.0
+
+    function cascadeProgressFor(index) {
+        if (!root.enableCascade)
+            return 1.0;
+        const elapsed = root.cascadeClock * root.cascadeDuration;
+        return Math.max(0.0, Math.min(1.0,
+            (elapsed - root.cascadeDelayBase - index * root.cascadeDelayStep)
+            / Math.max(1, root.cascadeItemDuration)));
+    }
+
+    function syncCascade() {
+        if (!cascadeAnimation)
+            return;
+        cascadeAnimation.stop();
+        if (!root.enableCascade || !root.visible || !GlobalStates.overviewOpen) {
+            root.cascadeClock = 1.0;
+            return;
+        }
+        root.cascadeClock = 0.0;
+        cascadeAnimation.start();
+    }
+
+    NumberAnimation {
+        id: cascadeAnimation
+        target: root
+        property: "cascadeClock"
+        from: 0.0
+        to: 1.0
+        duration: root.cascadeDuration
+        easing.type: Easing.OutCubic
+    }
+
+    Connections {
+        target: GlobalStates
+        function onOverviewOpenChanged() {
+            root.syncCascade();
+        }
+    }
+
+    onVisibleChanged: {
+        if (!root.visible) {
+            root.syncCascade();
+        } else if (GlobalStates.overviewOpen && root.enableCascade && root.cascadeClock >= 1.0) {
+            // The overview reveal can map this item one frame after the
+            // global open signal. Start the shared clock when pixels become
+            // visible instead of losing the entrance animation.
+            root.syncCascade();
+        }
+    }
+    onEnableCascadeChanged: root.syncCascade()
+    Component.onCompleted: Qt.callLater(root.syncCascade)
+
+    readonly property real autoScale: {
+        let cols = Math.max(1, root.gridColumns || 5);
+        let rows = Math.max(1, root.gridRows || 2);
+        let widthScale = 0.88 / cols;
+        let heightScale = 0.74 / rows;
+        let baseScale = Math.min(widthScale, heightScale);
+        return baseScale * root.autoScaleFactor;
+    }
+    readonly property real activeScale: root.fixedScale > 0 ? root.fixedScale
+        : (enableManualScale ? Config.options.overview.scale : autoScale)
+    property real scale: activeScale
+    readonly property real monitorScale: (monitor?.scale > 0) ? monitor.scale : 1
+    readonly property real workspaceLayoutScale: root.scale / root.monitorScale
+    property int minWorkspaceWidth: (monitorData?.transform % 2 === 1) 
+        ? ((monitor.height - (monitorData ? (monitorData.reserved?.[1] ?? 0) : 0) - (monitorData ? (monitorData.reserved?.[3] ?? 0) : 0)) * root.workspaceLayoutScale) 
+        : ((monitor.width - (monitorData ? (monitorData.reserved?.[0] ?? 0) : 0) - (monitorData ? (monitorData.reserved?.[2] ?? 0) : 0)) * root.workspaceLayoutScale)
+    required property var panelWindow
+    readonly property HyprlandMonitor monitor: Hyprland.monitorFor(panelWindow.screen)
     readonly property var toplevels: ToplevelManager.toplevels
     // Clamp to avoid lock-screen temp workspace (2147483647 - N) leaking into UI
     readonly property int effectiveActiveWorkspaceId: Math.max(1, Math.min(100, monitor?.activeWorkspace?.id ?? 1))
-    readonly property int workspacesShown: Config.options.overview.rows * Config.options.overview.columns
-    readonly property int workspaceGroup: Math.floor((effectiveActiveWorkspaceId - 1) / workspacesShown)
+    readonly property int workspacesShown: root.gridRows * root.gridColumns
+    //TODO: I may have to use effectibeActiveWorkspace ID like this:
+    // readonly property int effectiveActiveWorkspaceId: Math.max(1, Math.min(100, monitor?.activeWorkspace?.id ?? 1))
+    // readonly property int workspaceGroup: Math.floor((effectiveActiveWorkspaceId - 1) / workspacesShown)
+
+    readonly property int hyprlandMonitorIndex: {
+        if (!monitor || !monitor.name) return 0;
+        let idx = HyprlandData.monitors.findIndex(mon => mon.name === monitor.name);
+        return idx !== -1 ? idx : 0;
+    }
+
+    readonly property bool useWorkspaceMap: Config.options.bar.workspaces.useWorkspaceMap && Config.options.overview.useWorkspaceMap
+    readonly property list<int> workspaceMap: Config.options.bar.workspaces.workspaceMap
+    property int monitorIndex // to be set by parent
+    property int workspaceOffset: useWorkspaceMap ? (workspaceMap.length > hyprlandMonitorIndex ? workspaceMap[hyprlandMonitorIndex] : hyprlandMonitorIndex * (Config.options.bar.workspaces.shown || 10)) : 0
+
+    readonly property int workspaceGroup: {
+        let activeId = monitor.activeWorkspace?.id;
+        if (!activeId) return 0;
+        if (activeId <= workspaceOffset) return 0;
+        if (useWorkspaceMap && workspaceMap.length > hyprlandMonitorIndex + 1) {
+            let nextMonitorStart = workspaceMap[hyprlandMonitorIndex + 1];
+            if (activeId > nextMonitorStart) return 0;
+        }
+        let group = Math.floor((activeId - workspaceOffset - 1) / workspacesShown);
+        return Math.max(0, group);
+    }
+    readonly property bool isWorkspaceActiveInRange: {
+        let activeId = monitor.activeWorkspace?.id;
+        if (!activeId) return false;
+        let startWs = workspaceOffset + workspaceGroup * workspacesShown + 1;
+        let endWs = workspaceOffset + (workspaceGroup + 1) * workspacesShown;
+        return activeId >= startWs && activeId <= endWs;
+    }
     property bool monitorIsFocused: (Hyprland.focusedMonitor?.name == monitor.name)
     property var windows: HyprlandData.windowList
     property var windowByAddress: HyprlandData.windowByAddress
     property var windowAddresses: HyprlandData.addresses
     property var monitorData: HyprlandData.monitors.find(m => m.id === root.monitor?.id)
-    property real scale: Config.options.overview.scale
     property color activeBorderColor: Appearance.colors.colSecondary
 
-    property real workspaceImplicitWidth: (monitorData?.transform % 2 === 1) ? 
-        ((monitor.height - monitorData?.reserved[0] - monitorData?.reserved[2]) * root.scale / monitor.scale) :
-        ((monitor.width - monitorData?.reserved[0] - monitorData?.reserved[2]) * root.scale / monitor.scale)
-    property real workspaceImplicitHeight: (monitorData?.transform % 2 === 1) ? 
-        ((monitor.width - monitorData?.reserved[1] - monitorData?.reserved[3]) * root.scale / monitor.scale) :
-        ((monitor.height - monitorData?.reserved[1] - monitorData?.reserved[3]) * root.scale / monitor.scale)
+    property real workspaceImplicitWidth: minWorkspaceWidth
+    property real workspaceImplicitHeight: (monitorData?.transform % 2 === 1) 
+        ? ((monitor.width - (monitorData ? (monitorData.reserved?.[0] ?? 0) : 0) - (monitorData ? (monitorData.reserved?.[2] ?? 0) : 0)) * root.workspaceLayoutScale) 
+        : ((monitor.height - (monitorData ? (monitorData.reserved?.[1] ?? 0) : 0) - (monitorData ? (monitorData.reserved?.[3] ?? 0) : 0)) * root.workspaceLayoutScale)
     property real largeWorkspaceRadius: Appearance.rounding.large
     property real smallWorkspaceRadius: Appearance.rounding.verysmall
 
+    // We are using a width map to get all windows width and setting workspaceImplicitWidth to the maximum item of this list/map
+    property list<int> widthMap: []
+
+    onMinWorkspaceWidthChanged: {
+        if (!root.hyprscrollingEnabled)
+            root.workspaceImplicitWidth = minWorkspaceWidth;
+    }
+
+    onWorkspaceGroupChanged: {
+        root.widthMap = [];
+        root.workspaceImplicitWidth = minWorkspaceWidth;
+    }
+
+    onWidthMapChanged: {
+        if (root.hyprscrollingEnabled) {
+            root.workspaceImplicitWidth = getMaxWidth();
+        } else {
+            root.workspaceImplicitWidth = minWorkspaceWidth;
+        }
+    }
+
+    function getMaxWidth() {
+        if (widthMap.length === 0)
+            return minWorkspaceWidth;
+        const max = Math.max(...widthMap);
+        return Math.max(max, minWorkspaceWidth);
+    }
+
     property real workspaceNumberMargin: 80
-    property real workspaceNumberSize: 250 * monitor.scale
+    readonly property real workspaceNumberPixelSize: Math.min(root.workspaceImplicitWidth, root.workspaceImplicitHeight) * 0.36
     property int workspaceZ: 0
     property int windowZ: 1
     property int windowDraggingZ: 99999
-    property real workspaceSpacing: 5
+    property real workspaceSpacing: 10
+
+    property int dragDropType: -1 // 0: workspace, 1: window
+
+    property string draggingFromWindowAddress
+    property string draggingTargetWindowAdress
+    property string draggingDirection  // options: 'l' or 'r' // only for window dragging
+
+    property bool draggingWindowsFloating
 
     property int draggingFromWorkspace: -1
     property int draggingTargetWorkspace: -1
 
-    implicitWidth: overviewBackground.implicitWidth + Appearance.sizes.elevationMargin * 2
-    implicitHeight: overviewBackground.implicitHeight + Appearance.sizes.elevationMargin * 2
+    readonly property real surfaceMargin: root.hosted ? 0 : Appearance.sizes.elevationMargin
+    implicitWidth: overviewBackground.implicitWidth + root.surfaceMargin * 2
+    implicitHeight: overviewBackground.implicitHeight + root.surfaceMargin * 2
+
+    Behavior on workspaceImplicitWidth {
+        enabled: !root.animationsDisabled
+        animation: Appearance.animation.elementResize.numberAnimation.createObject(this)
+    }
 
     property Component windowComponent: OverviewWindow {}
     property list<OverviewWindow> windowWidgets: []
-    
+
+    property var activeWindow: windows.find(w => w.focusHistoryID === 0 && w.workspace?.id === monitor.activeWorkspace?.id && w.monitor === monitor.id)
+
+    property var activeWindowData
+
     function getWsRow(ws) {
-        // 1-indexed workspace, 0-indexed row
-        var normalRow = Math.floor((ws - 1) / Config.options.overview.columns) % Config.options.overview.rows;
-        return (Config.options.overview.orderBottomUp ? Config.options.overview.rows - normalRow - 1 : normalRow);
+        var wsAdjusted = ws - root.workspaceOffset;
+        var normalRow = Math.floor((wsAdjusted - 1) / root.gridColumns) % root.gridRows;
+        return (Config.options.overview.orderBottomUp ? root.gridRows - normalRow - 1 : normalRow);
     }
+
     function getWsColumn(ws) {
-        // 1-indexed workspace, 0-indexed column
-        var normalCol = (ws - 1) % Config.options.overview.columns;
-        return (Config.options.overview.orderRightLeft ? Config.options.overview.columns - normalCol - 1 : normalCol);
+        var wsAdjusted = ws - root.workspaceOffset;
+        var normalCol = (wsAdjusted - 1) % root.gridColumns;
+        return (Config.options.overview.orderRightLeft ? root.gridColumns - normalCol - 1 : normalCol);
     }
+
     function getWsInCell(ri, ci) {
-        // 1-indexed workspace, 0-indexed row and column index
-        return (Config.options.overview.orderBottomUp ? Config.options.overview.rows - ri - 1 : ri) * Config.options.overview.columns + (Config.options.overview.orderRightLeft ? Config.options.overview.columns - ci - 1 : ci) + 1
+        var wsInCell = (Config.options.overview.orderBottomUp ? root.gridRows - ri - 1 : ri) * root.gridColumns + (Config.options.overview.orderRightLeft ? root.gridColumns - ci - 1 : ci) + 1;
+        return wsInCell + root.workspaceOffset;
     }
 
     StyledRectangularShadow {
         target: overviewBackground
+        visible: !root.hosted
     }
     Rectangle { // Background
         id: overviewBackground
         property real padding: 10
         anchors.fill: parent
-        anchors.margins: Appearance.sizes.elevationMargin
+        anchors.margins: root.surfaceMargin
 
         implicitWidth: workspaceColumnLayout.implicitWidth + padding * 2
         implicitHeight: workspaceColumnLayout.implicitHeight + padding * 2
         radius: root.largeWorkspaceRadius + padding
-        color: Appearance.colors.colBackgroundSurfaceContainer
+        color: root.hosted ? "transparent" : Appearance.colors.colBackgroundSurfaceContainer
+
+        /**
+         * Static workspace surfaces, painted from the first frame.
+         *
+         * The cascade used to fade each cell's own background in. Until a cell
+         * arrived, only the translucent panel covered that spot, and on its own
+         * the panel stays under the overview layer's `ignore_alpha` threshold —
+         * so the compositor left those spots unblurred and the grid opened as a
+         * frosted sheet with clear holes in it. The surfaces never animate now;
+         * the cascade moves only what sits on them (numbers and windows).
+         */
+        Column {
+            id: workspaceBackdropLayout
+            anchors.centerIn: parent
+            spacing: workspaceSpacing
+
+            Repeater {
+                model: root.gridRows
+                delegate: Row {
+                    id: backdropRow
+                    required property int index
+                    spacing: workspaceSpacing
+
+                    Repeater {
+                        model: root.gridColumns
+                        Rectangle {
+                            required property int index
+                            readonly property bool atLeft: index === 0
+                            readonly property bool atRight: index === root.gridColumns - 1
+                            readonly property bool atTop: backdropRow.index === 0
+                            readonly property bool atBottom: backdropRow.index === root.gridRows - 1
+                            implicitWidth: root.workspaceImplicitWidth
+                            implicitHeight: root.workspaceImplicitHeight
+                            color: Appearance.colors.colSurfaceContainerLow
+                            topLeftRadius: (atLeft && atTop) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
+                            topRightRadius: (atRight && atTop) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
+                            bottomLeftRadius: (atLeft && atBottom) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
+                            bottomRightRadius: (atRight && atBottom) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
+                        }
+                    }
+                }
+            }
+        }
 
         Column { // Workspaces
             id: workspaceColumnLayout
@@ -89,16 +319,16 @@ Item {
             z: root.workspaceZ
             anchors.centerIn: parent
             spacing: workspaceSpacing
-            
+
             Repeater {
-                model: Config.options.overview.rows
+                model: root.gridRows
                 delegate: Row {
                     id: row
                     required property int index
                     spacing: workspaceSpacing
 
                     Repeater { // Workspace repeater
-                        model: Config.options.overview.columns
+                        model: root.gridColumns
                         Rectangle { // Workspace
                             id: workspace
                             required property int index
@@ -109,13 +339,34 @@ Item {
                             property color hoveredBorderColor: Appearance.colors.colLayer2Hover
                             property bool hoveredWhileDragging: false
 
+                            // The shared clock keeps the same stagger without
+                            // allocating per-cell timers and animations.
+                            property int cellIndex: row.index * root.gridColumns + colIndex
+                            readonly property real animProgress: root.cascadeProgressFor(cellIndex)
+
+                            opacity: root.enableCascade ? workspace.animProgress : 1.0
+                            transform: [
+                                Translate {
+                                    x: root.enableCascade ? (1.0 - workspace.animProgress) * -15 : 0
+                                    y: root.enableCascade ? (1.0 - workspace.animProgress) * -20 : 0
+                                },
+                                Scale {
+                                    origin.x: workspace.implicitWidth / 2
+                                    origin.y: workspace.implicitHeight / 2
+                                    xScale: root.enableCascade ? (0.85 + 0.15 * workspace.animProgress) : 1.0
+                                    yScale: root.enableCascade ? (0.85 + 0.15 * workspace.animProgress) : 1.0
+                                }
+                            ]
+
                             implicitWidth: root.workspaceImplicitWidth
                             implicitHeight: root.workspaceImplicitHeight
-                            color: hoveredWhileDragging ? hoveredWorkspaceColor : defaultWorkspaceColor
+                            // The surface itself is the static backdrop underneath;
+                            // this cell only adds the drag-hover tint on top of it.
+                            color: hoveredWhileDragging ? ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 0.9) : "transparent"
                             property bool workspaceAtLeft: colIndex === 0
-                            property bool workspaceAtRight: colIndex === Config.options.overview.columns - 1
+                            property bool workspaceAtRight: colIndex === root.gridColumns - 1
                             property bool workspaceAtTop: row.index === 0
-                            property bool workspaceAtBottom: row.index === Config.options.overview.rows - 1
+                            property bool workspaceAtBottom: row.index === root.gridRows - 1
                             topLeftRadius: (workspaceAtLeft && workspaceAtTop) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
                             topRightRadius: (workspaceAtRight && workspaceAtTop) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
                             bottomLeftRadius: (workspaceAtLeft && workspaceAtBottom) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
@@ -127,9 +378,9 @@ Item {
                                 anchors.centerIn: parent
                                 text: workspace.workspaceValue
                                 font {
-                                    pixelSize: root.workspaceNumberSize * root.scale
+                                    pixelSize: root.workspaceNumberPixelSize
                                     weight: Font.DemiBold
-                                    family: Appearance.font.family.expressive
+                                    family: Appearance.font.family.numbers
                                 }
                                 color: ColorUtils.transparentize(Appearance.colors.colOnLayer1, 0.8)
                                 horizontalAlignment: Text.AlignHCenter
@@ -142,25 +393,28 @@ Item {
                                 acceptedButtons: Qt.LeftButton
                                 onPressed: {
                                     if (root.draggingTargetWorkspace === -1) {
-                                        GlobalStates.overviewOpen = false
-                                        Hyprland.dispatch(`hl.dsp.focus({ workspace = ${workspace.workspaceValue} })`)
+                                        GlobalStates.overviewOpen = false;
+                                        Hyprland.dispatch(`hl.dsp.focus({ workspace = ${workspace.workspaceValue} })`);
                                     }
                                 }
                             }
 
-                            DropArea {
+                            DropArea { // Workspace drop
                                 anchors.fill: parent
-                                onEntered: {
-                                    root.draggingTargetWorkspace = workspace.workspaceValue
-                                    if (root.draggingFromWorkspace == root.draggingTargetWorkspace) return;
-                                    hoveredWhileDragging = true
+                                onEntered: drag => {
+                                    root.dragDropType = 0;
+                                    root.draggingTargetWorkspace = workspace.workspaceValue;
+                                    if (root.draggingFromWorkspace == root.draggingTargetWorkspace)
+                                        return;
+                                    hoveredWhileDragging = true;
                                 }
                                 onExited: {
-                                    hoveredWhileDragging = false
-                                    if (root.draggingTargetWorkspace == workspace.workspaceValue) root.draggingTargetWorkspace = -1
+                                    root.dragDropType = -1;
+                                    hoveredWhileDragging = false;
+                                    if (root.draggingTargetWorkspace == workspace.workspaceValue)
+                                        root.draggingTargetWorkspace = -1;
                                 }
                             }
-
                         }
                     }
                 }
@@ -174,53 +428,159 @@ Item {
             implicitHeight: workspaceColumnLayout.implicitHeight
 
             Repeater { // Window repeater
+                id: windowRepeater
                 model: ScriptModel {
                     values: {
-                        // console.log(JSON.stringify(ToplevelManager.toplevels.values.map(t => t), null, 2))
-                        return ToplevelManager.toplevels.values.filter((toplevel) => {
-                            const address = `0x${toplevel.HyprlandToplevel?.address}`
-                            var win = windowByAddress[address]
-                            const inWorkspaceGroup = (root.workspaceGroup * root.workspacesShown < win?.workspace?.id && win?.workspace?.id <= (root.workspaceGroup + 1) * root.workspacesShown)
+                        return ToplevelManager.toplevels.values.filter(toplevel => {
+                            const address = `0x${toplevel.HyprlandToplevel?.address}`;
+                            const win = windowByAddress[address];
+                            if (!win)
+                                return false;
+
+                            const inWorkspaceGroup = (root.workspaceGroup * root.workspacesShown + root.workspaceOffset < win.workspace?.id && win.workspace?.id <= (root.workspaceGroup + 1) * root.workspacesShown + root.workspaceOffset);
+
                             return inWorkspaceGroup;
-                        })
+                        });
                     }
                 }
                 delegate: OverviewWindow {
                     id: window
+                    required property int index
                     required property var modelData
                     property int monitorId: windowData?.monitor
-                    property var monitor: HyprlandData.monitors.find(m => m.id == monitorId)
+                    property var windowMonitorData: HyprlandData.monitors.find(m => m.id == monitorId)
                     property var address: `0x${modelData.HyprlandToplevel.address}`
                     toplevel: modelData
-                    monitorData: this.monitor
+                    monitorData: windowMonitorData
                     scale: root.scale
                     widgetMonitor: HyprlandData.monitors.find(m => m.id == root.monitor.id)
                     windowData: windowByAddress[address]
-                    workspaceWidth: root.workspaceImplicitWidth
-                    workspaceHeight: root.workspaceImplicitHeight
+                    hyprscrollingEnabled: root.hyprscrollingEnabled
+
+                    // Cascading entrance calculation matching the workspace
+                    // cell, driven by the monitor-level clock.
+                    property int cellIndex: workspaceRowIndex * root.gridColumns + workspaceColIndex
+                    readonly property real animProgress: root.cascadeProgressFor(cellIndex)
+
+                    opacity: root.enableCascade ? window.animProgress : 1.0
+                    transform: [
+                        Translate {
+                            x: root.enableCascade ? (1.0 - window.animProgress) * -15 : 0
+                            y: root.enableCascade ? (1.0 - window.animProgress) * -20 : 0
+                        },
+                        Scale {
+                            origin.x: window.width / 2
+                            origin.y: window.height / 2
+                            xScale: root.enableCascade ? (0.85 + 0.15 * window.animProgress) : 1.0
+                            yScale: root.enableCascade ? (0.85 + 0.15 * window.animProgress) : 1.0
+                        }
+                    ]
+
+                    property int wsId: windowData?.workspace?.id
+
+                    property var wsWindowsSorted: {
+                        const arr = [];
+                        const all = windowRepeater.model.values;
+
+                        for (let i = 0; i < all.length; i++) {
+                            const t = all[i];
+                            const addr = `0x${t.HyprlandToplevel.address}`;
+                            const w = windowByAddress[addr];
+
+                            if (!w)
+                                continue;
+                            if (w.floating)
+                                continue;
+                            if (w.workspace?.id !== wsId)
+                                continue;
+                            arr.push(w);
+                        }
+
+                        arr.sort((a, b) => a.at[0] - b.at[0]);
+                        return arr;
+                    }
+
+                    property int wsIndex: {
+                        for (let i = 0; i < wsWindowsSorted.length; i++) {
+                            if (wsWindowsSorted[i].address === windowData.address)
+                                return i;
+                        }
+                        return 0;
+                    }
+
+                    property real workspaceTotalWindowWidth: {
+                        let sum = 0;
+                        for (let i = 0; i < wsWindowsSorted.length; i++) {
+                            const w = wsWindowsSorted[i];
+                            sum += w.size?.[0] ?? 0;
+                        }
+                        return sum * root.scale;
+                    }
+
+                    onWorkspaceTotalWindowWidthChanged: { // we have to update widthMap here to prevent 'Binding Loop' error
+                        if (workspaceTotalWindowWidth > 0 && root.hyprscrollingEnabled) {
+                            root.widthMap.push(workspaceTotalWindowWidth);
+                        }
+                    }
+
+                    property real windowWidthRatio: {
+                        if (!windowData?.size?.[0] || workspaceTotalWindowWidth === 0)
+                            return 1 / wsCount;
+
+                        return (windowData.size[0] * root.scale) / workspaceTotalWindowWidth;
+                    }
+
+                    function calculateXPos() {
+                        let x = xOffset;
+                        for (let i = 0; i < wsIndex; i++) {
+                            const w = wsWindowsSorted[i];
+                            const wRatio = (w.size?.[0] ?? 0) * root.scale / workspaceTotalWindowWidth;
+                            x += root.workspaceImplicitWidth * wRatio;
+                        }
+                        return x;
+                    }
+
+                    property int wsCount: wsWindowsSorted.length || 1
+
+                    scrollWidth: windowData.floating ? window.targetWindowWidth : root.workspaceImplicitWidth * windowWidthRatio
+                    scrollHeight: windowData.floating ? window.targetWindowHeight : root.workspaceImplicitHeight
+
+                    scrollX: windowData.floating ? xOffset + xWithinWorkspaceWidget : calculateXPos()
+                    scrollY: windowData.floating ? yOffset + yWithinWorkspaceWidget : yOffset
+
+                    property bool isActiveWindow: { // we have to set root.activeWindowData here instead of component.oncompleted
+                        if (window.address == root.activeWindow?.address) {
+                            root.activeWindowData = {
+                                x: scrollX,
+                                y: scrollY,
+                                width: scrollWidth,
+                                height: scrollHeight
+                            };
+                            return true;
+                        }
+                        return false;
+                    }
 
                     property bool atInitPosition: (initX == x && initY == y)
-                    property real dragStartX: 0
-                    property real dragStartY: 0
 
                     // Offset on the canvas
                     property int workspaceColIndex: getWsColumn(windowData?.workspace.id)
                     property int workspaceRowIndex: getWsRow(windowData?.workspace.id)
                     xOffset: (root.workspaceImplicitWidth + workspaceSpacing) * workspaceColIndex
                     yOffset: (root.workspaceImplicitHeight + workspaceSpacing) * workspaceRowIndex
-                    property real xWithinWorkspaceWidget: Math.max((windowData?.at[0] - (monitor?.x ?? 0) - monitorData?.reserved[0]) * root.scale, 0)
-                    property real yWithinWorkspaceWidget: Math.max((windowData?.at[1] - (monitor?.y ?? 0) - monitorData?.reserved[1]) * root.scale, 0)
+                    property real xWithinWorkspaceWidget: Math.max((windowData?.at[0] - (windowMonitorData?.x ?? 0) - (windowMonitorData?.reserved?.[0] ?? 0)) * window.widthRatio * root.scale, 0)
+                    property real yWithinWorkspaceWidget: Math.max((windowData?.at[1] - (windowMonitorData?.y ?? 0) - (windowMonitorData?.reserved?.[1] ?? 0)) * window.heightRatio * root.scale, 0)
 
                     // Radius
                     property real minRadius: Appearance.rounding.small
                     property bool workspaceAtLeft: workspaceColIndex === 0
-                    property bool workspaceAtRight: workspaceColIndex === Config.options.overview.columns - 1
+                    property bool workspaceAtRight: workspaceColIndex === root.gridColumns - 1
                     property bool workspaceAtTop: workspaceRowIndex === 0
-                    property bool workspaceAtBottom: workspaceRowIndex === Config.options.overview.rows - 1
-                    property bool workspaceAtTopLeft: (workspaceAtLeft && workspaceAtTop) 
-                    property bool workspaceAtTopRight: (workspaceAtRight && workspaceAtTop) 
-                    property bool workspaceAtBottomLeft: (workspaceAtLeft && workspaceAtBottom) 
-                    property bool workspaceAtBottomRight: (workspaceAtRight && workspaceAtBottom) 
+                    property bool workspaceAtBottom: workspaceRowIndex === root.gridRows - 1
+                    property bool workspaceAtTopLeft: (workspaceAtLeft && workspaceAtTop)
+                    property bool workspaceAtTopRight: (workspaceAtRight && workspaceAtTop)
+                    property bool workspaceAtBottomLeft: (workspaceAtLeft && workspaceAtBottom)
+                    property bool workspaceAtBottomRight: (workspaceAtRight && workspaceAtBottom)
                     property real distanceFromLeftEdge: xWithinWorkspaceWidget
                     property real distanceFromRightEdge: root.workspaceImplicitWidth - (xWithinWorkspaceWidget + targetWindowWidth)
                     property real distanceFromTopEdge: yWithinWorkspaceWidget
@@ -234,14 +594,73 @@ Item {
                     bottomLeftRadius: Math.max((workspaceAtBottomLeft ? root.largeWorkspaceRadius : root.smallWorkspaceRadius) - distanceFromBottomLeftCorner, minRadius)
                     bottomRightRadius: Math.max((workspaceAtBottomRight ? root.largeWorkspaceRadius : root.smallWorkspaceRadius) - distanceFromBottomRightCorner, minRadius)
 
+                    property int hoveringDir: 0 // 0: none, 1: right, 2: left
+                    property bool hovering: false
+
+                    Loader { // Hover indicator (only works with hyprscrolling)
+                        active: root.hyprscrollingEnabled && !root.draggingWindowsFloating
+                        anchors.verticalCenter: parent.verticalCenter
+                        sourceComponent: Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            x: hoveringDir == 1 ? window.width / 2 : 0
+                            implicitWidth: window.hovering ? window.width / 2 : 0
+                            implicitHeight: window.height
+
+                            color: ColorUtils.transparentize(Appearance.colors.colOnLayer1, 0.8)
+                            opacity: window.hovering ? 1 : 0
+                            topRightRadius: window.topLeftRadius
+                            bottomRightRadius: window.topLeftRadius
+                            topLeftRadius: window.topLeftRadius
+                            bottomLeftRadius: window.topLeftRadius
+
+                            Behavior on x {
+                                enabled: !root.animationsDisabled
+                                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                            }
+                            Behavior on opacity {
+                                enabled: !root.animationsDisabled
+                                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                            }
+                        }
+                    }
+
+                    DropArea { // Window drop
+                        anchors.fill: parent
+                        onEntered: drag => {
+                            parent.hovering = true;
+                            root.dragDropType = 1; // window
+                            root.draggingTargetWindowAdress = windowData?.address;
+                            root.draggingTargetWorkspace = window?.wsId;
+                            const localX = drag.x;
+                            const half = width / 2;
+
+                            if (localX < half) {
+                                root.draggingDirection = "l";
+                                hoveringDir = 2;
+                            } else {
+                                root.draggingDirection = "r";
+                                hoveringDir = 1;
+                            }
+                        }
+                        onExited: {
+                            parent.hovering = false;
+                            root.dragDropType = -1;
+                            if (root.draggingTargetWindowAdress == windowData?.address)
+                                root.draggingTargetWindowAdress = "";
+                        }
+                    }
+
                     Timer {
                         id: updateWindowPosition
                         interval: Config.options.hacks.arbitraryRaceConditionDelay
                         repeat: false
                         running: false
                         onTriggered: {
-                            window.x = Math.round(xWithinWorkspaceWidget + xOffset)
-                            window.y = Math.round(yWithinWorkspaceWidget + yOffset)
+                            if (windowData?.floating)
+                                return;
+                            window.x = calculateXPos();
+                            window.y = yOffset;
                         }
                     }
 
@@ -256,92 +675,77 @@ Item {
                         onExited: hovered = false // For hover color change
                         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                         drag.target: parent
-                        onPressed: (mouse) => {
-                            root.draggingFromWorkspace = windowData?.workspace.id
-                            window.pressed = true
-                            window.dragging = true
-                            // Stop any lingering Behavior animation from previous release
-                            window.x = window.x
-                            window.y = window.y
-                            window.dragStartX = window.x
-                            window.dragStartY = window.y
-                            window.Drag.active = true
-                            window.Drag.source = window
-                            window.Drag.hotSpot.x = mouse.x
-                            window.Drag.hotSpot.y = mouse.y
+                        onPressed: mouse => {
+                            root.draggingFromWorkspace = windowData?.workspace.id;
+                            root.draggingFromWindowAddress = windowData?.address;
+                            root.draggingWindowsFloating = windowData?.floating;
+                            window.pressed = true;
+                            window.Drag.active = true;
+                            window.Drag.source = window;
+                            window.Drag.hotSpot.x = mouse.x;
+                            window.Drag.hotSpot.y = mouse.y;
+                        // console.log(`[OverviewWindow] Dragging window ${windowData?.address} from position (${window.x}, ${window.y})`)
                         }
-                        onReleased: {
-                            const targetWorkspace = root.draggingTargetWorkspace
-                            window.pressed = false
-                            window.dragging = false
-                            window.Drag.active = false
-                            root.draggingFromWorkspace = -1
-                            if (targetWorkspace !== -1 && targetWorkspace !== windowData?.workspace.id) {
-                                if (!window.windowData.floating) {
-                                    Hyprland.dispatch(`hl.dsp.window.move({ workspace = ${targetWorkspace}, follow = false, window = "address:${window.windowData?.address}" })`)
-                                    // Animate non-float: predict final size (will fill workspace if alone)
-                                    const targetColIndex = getWsColumn(targetWorkspace)
-                                    const targetRowIndex = getWsRow(targetWorkspace)
-                                    const targetXOffset = (root.workspaceImplicitWidth + workspaceSpacing) * targetColIndex
-                                    const targetYOffset = (root.workspaceImplicitHeight + workspaceSpacing) * targetRowIndex
-                                    // Check if target workspace will have other windows
-                                    var otherWinCount = 0
-                                    var toplevels = ToplevelManager.toplevels.values
-                                    for (var i = 0; i < toplevels.length; i++) {
-                                        var t = toplevels[i]
-                                        var h = t.HyprlandToplevel
-                                        if (!h) continue
-                                        var addr = `0x${h.address}`
-                                        if (addr === window.windowData?.address) continue
-                                        var w = windowByAddress[addr]
-                                        if (w && !w.floating && w.workspace?.id === targetWorkspace) otherWinCount++
-                                    }
-                                    // If alone, use workspace size for centering; otherwise use current window size
-                                    var finalW = otherWinCount === 0 ? root.workspaceImplicitWidth : window.width
-                                    var finalH = otherWinCount === 0 ? root.workspaceImplicitHeight : window.height
-                                    window.x = targetXOffset + (root.workspaceImplicitWidth - finalW) / 2
-                                    window.y = targetYOffset + (root.workspaceImplicitHeight - finalH) / 2
+                        onReleased: { // Dropping Event
+
+                            if (root.dragDropType === 0) { // Workspace drop
+                                const targetWorkspace = root.draggingTargetWorkspace;
+                                window.pressed = false;
+                                window.Drag.active = false;
+                                root.draggingFromWorkspace = -1;
+                                if (targetWorkspace !== -1 && targetWorkspace !== windowData?.workspace.id) {
+                                    Hyprland.dispatch(`hl.dsp.window.move({ workspace = ${targetWorkspace}, follow = false, window = "address:${window.windowData?.address}" })`);
+                                    updateWindowPosition.restart();
                                 } else {
-                                    // Float: keep consistent screen position across workspaces
-                                    Hyprland.dispatch(`hl.dsp.window.move({ workspace = ${targetWorkspace}, follow = false, window = "address:${window.windowData?.address}" })`)
-                                    // Use captured dragStart position (most accurate) instead of initX (may be stale)
-                                    const percentageX = (window.dragStartX - xOffset) / root.workspaceImplicitWidth
-                                    const percentageY = (window.dragStartY - yOffset) / root.workspaceImplicitHeight
-                                    const targetColIndex = getWsColumn(targetWorkspace)
-                                    const targetRowIndex = getWsRow(targetWorkspace)
-                                    const targetXOffset = (root.workspaceImplicitWidth + workspaceSpacing) * targetColIndex
-                                    const targetYOffset = (root.workspaceImplicitHeight + workspaceSpacing) * targetRowIndex
-                                    window.x = targetXOffset + percentageX * root.workspaceImplicitWidth
-                                    window.y = targetYOffset + percentageY * root.workspaceImplicitHeight
+                                    if (!window.windowData.floating) {
+                                        updateWindowPosition.restart();
+                                        return;
+                                    }
+                                    const percentageX = Math.round((window.x - xOffset) / root.workspaceImplicitWidth * 100);
+                                    const percentageY = Math.round((window.y - yOffset) / root.workspaceImplicitHeight * 100);
+                                    Hyprland.dispatch(`hl.dsp.window.move({ x = "${percentageX * root.screen.width}", y = "${percentageY * root.screen.height}", window = "address:${window.windowData?.address}" })`);
                                 }
-                            }
-                            else {
-                                if (!window.windowData.floating) {
-                                    updateWindowPosition.restart()
-                                    return
+                            } else if (root.dragDropType === 1) { // Window drop
+                                const targetWindowAdress = root.draggingTargetWindowAdress;
+                                const targetWorkspace = root.draggingTargetWorkspace;
+                                window.pressed = false;
+                                window.Drag.active = false;
+                                if (targetWindowAdress !== "" && targetWindowAdress !== windowData?.address) {
+                                    if (root.draggingTargetWorkspace === root.draggingFromWorkspace) { // direct same workspace swap
+                                        Hyprland.dispatch(`hl.dsp.window.swap({ target = "address:${targetWindowAdress}", window = "address:${window.windowData?.address}" })`);
+                                    } else { // different workspace
+                                        Hyprland.dispatch(`hl.dsp.window.move({ workspace = ${targetWorkspace}, follow = false, window = "address:${root.draggingFromWindowAddress}" })`);
+                                        Qt.callLater(() => {
+                                            Hyprland.dispatch(`hl.dsp.window.swap({ target = "address:${targetWindowAdress}", window = "address:${window.windowData?.address}" })`);
+                                        });
+                                    }
                                 }
-                                const percentageX = (window.x - xOffset) / root.workspaceImplicitWidth
-                                const percentageY = (window.y - yOffset) / root.workspaceImplicitHeight
-                                Hyprland.dispatch(`hl.dsp.window.move({ x = "${percentageX * root.screen.width}", y = "${percentageY * root.screen.height}", window = "address:${window.windowData?.address}" })`)
+                                Qt.callLater(() => {
+                                    root.draggingFromWindowAddress = "";
+                                    root.draggingTargetWindowAdress = "";
+                                    updateWindowPosition.restart();
+                                    HyprlandData.updateWindowList();
+                                });
                             }
                         }
-                        onClicked: (event) => {
-                            if (!windowData) return;
+                        onClicked: event => {
+                            if (!windowData)
+                                return;
 
                             if (event.button === Qt.LeftButton) {
-                                GlobalStates.overviewOpen = false
-                                Hyprland.dispatch(`hl.dsp.focus({ window = "address:${windowData.address}" })`)
-                                event.accepted = true
+                                Hyprland.dispatch(`hl.dsp.focus({window = "address:${windowData.address}"})`);
+                                GlobalStates.overviewOpen = false;
+                                event.accepted = true;
                             } else if (event.button === Qt.MiddleButton) {
-                                Hyprland.dispatch(`hl.dsp.window.close({ window = "address:${windowData.address}" })`)
-                                event.accepted = true
+                                Hyprland.dispatch(`hl.dsp.window.close({window = "address:${windowData.address}"})`);
+                                event.accepted = true;
                             }
                         }
 
                         StyledToolTip {
                             extraVisibleCondition: false
                             alternativeVisibleCondition: dragArea.containsMouse && !window.Drag.active
-                            text: `${windowData?.title}\n[${windowData?.class}] ${windowData?.xwayland ? "[XWayland] " : ""}`
+                            text: `${windowData?.title}${windowData?.xwayland ? "[XWayland] " : ""}`
                         }
                     }
                 }
@@ -349,40 +753,67 @@ Item {
 
             Rectangle { // Focused workspace indicator
                 id: focusedWorkspaceIndicator
-                property int rowIndex: getWsRow(root.effectiveActiveWorkspaceId)
-                property int colIndex: getWsColumn(root.effectiveActiveWorkspaceId)
-                x: (root.workspaceImplicitWidth + workspaceSpacing) * colIndex
-                y: (root.workspaceImplicitHeight + workspaceSpacing) * rowIndex
-                z: root.windowZ
-                width: root.workspaceImplicitWidth
-                height: root.workspaceImplicitHeight
-                color: "transparent"
+                visible: root.isWorkspaceActiveInRange
+                property int activeId: {
+                    let actId = monitor.activeWorkspace?.id;
+                    if (!actId || !root.isWorkspaceActiveInRange) {
+                        return root.workspaceOffset + 1;
+                    }
+                    return actId;
+                }
+                property int rowIndex: getWsRow(activeId)
+                property int colIndex: getWsColumn(activeId)
+
+                z: 999
+
+                x: root.hyprscrollingEnabled ? root.activeWindowData?.x ?? 0 : (root.workspaceImplicitWidth + workspaceSpacing) * colIndex
+                y: root.hyprscrollingEnabled ? root.activeWindowData?.y ?? 0 : (root.workspaceImplicitHeight + workspaceSpacing) * rowIndex
+                width: root.hyprscrollingEnabled ? root.activeWindowData?.width ?? 0 : root.workspaceImplicitWidth
+                height: root.hyprscrollingEnabled ? root.activeWindowData?.height ?? 0 : root.workspaceImplicitHeight
+
                 property bool workspaceAtLeft: colIndex === 0
-                property bool workspaceAtRight: colIndex === Config.options.overview.columns - 1
+                property bool workspaceAtRight: colIndex === root.gridColumns - 1
                 property bool workspaceAtTop: rowIndex === 0
-                property bool workspaceAtBottom: rowIndex === Config.options.overview.rows - 1
+                property bool workspaceAtBottom: rowIndex === root.gridRows - 1
+
                 topLeftRadius: (workspaceAtLeft && workspaceAtTop) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
                 topRightRadius: (workspaceAtRight && workspaceAtTop) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
                 bottomLeftRadius: (workspaceAtLeft && workspaceAtBottom) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
                 bottomRightRadius: (workspaceAtRight && workspaceAtBottom) ? root.largeWorkspaceRadius : root.smallWorkspaceRadius
+
+                color: "transparent"
                 border.width: 2
                 border.color: root.activeBorderColor
                 Behavior on x {
+                    enabled: !root.animationsDisabled
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
                 Behavior on y {
+                    enabled: !root.animationsDisabled
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
+                Behavior on width {
+                    enabled: !root.animationsDisabled
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
+                Behavior on height {
+                    enabled: !root.animationsDisabled
                     animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                 }
                 Behavior on topLeftRadius {
+                    enabled: !root.animationsDisabled
                     animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
                 }
                 Behavior on topRightRadius {
+                    enabled: !root.animationsDisabled
                     animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
                 }
                 Behavior on bottomLeftRadius {
+                    enabled: !root.animationsDisabled
                     animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
                 }
                 Behavior on bottomRightRadius {
+                    enabled: !root.animationsDisabled
                     animation: Appearance.animation.elementMoveEnter.numberAnimation.createObject(this)
                 }
             }

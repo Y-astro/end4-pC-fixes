@@ -10,6 +10,7 @@ import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+import Ryoku.Blobs
 
 Item {
     id: root
@@ -252,14 +253,54 @@ Item {
         }
     }
 
+    // ── Liquid "Blob Melt" Spring System (Ryoku.Blobs SDF) ──
+    BlobGroup {
+        id: islandBlobGroup
+        color: root.isMaterial || (GlobalStates.barCenterOnly && Config.options.bar.cornerStyle === 0) ? "transparent" : Config.options.bar.followFrameColor
+            ? Appearance.getColorFromName(Config.options.bar.frameColor)
+            : Appearance.colors.colLayer0
+        smoothing: 14
+        borderWidth: 0
+    }
+
+    Item {
+        id: blobSurface
+        anchors.fill: parent
+        z: -1
+        visible: !root.vertical
+
+        BlobRect {
+            id: mainPillBlob
+            group: islandBlobGroup
+            anchors.left: parent.left
+            width: pill.width
+            height: pill.height
+            radius: height / 2
+            stiffness: 150
+            damping: 15
+        }
+
+        Repeater {
+            model: root.badgeProviders.length
+            delegate: BlobRect {
+                group: islandBlobGroup
+                x: pill.width + root.badgeSpacing + index * (root.badgeSize + root.badgeSpacing)
+                y: Math.round((root.pillHeight - root.badgeSize) / 2)
+                width: root.badgeSize
+                height: root.badgeSize
+                radius: height / 2
+                stiffness: 160
+                damping: 15
+            }
+        }
+    }
+
     Rectangle {
         id: pill
         anchors.left: parent.left
         width: root.displayedProvider?.width ?? root.idleWidth
         height: root.pillHeight
-        color: root.isMaterial || (GlobalStates.barCenterOnly && Config.options.bar.cornerStyle === 0) ? "transparent" : Config.options.bar.followFrameColor
-            ? Appearance.getColorFromName(Config.options.bar.frameColor)
-            : Appearance.colors.colLayer0
+        color: "transparent"
         radius: height / 2
         clip: true
         visible: !root.vertical

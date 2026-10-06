@@ -99,9 +99,25 @@ Scope {
         }
         command: ["cava", "-p", `${FileUtils.trimFileProtocol(Directories.scriptPath)}/cava/raw_output_config.txt`]
         stdout: SplitParser {
+            property bool wasAllZero: false
             onRead: data => {
                 let points = data.split(";").map(p => parseFloat(p.trim())).filter(p => !isNaN(p));
-                GlobalStates.visualizerPoints = points;
+                let isZero = true;
+                for (let i = 0; i < points.length; i++) {
+                    if (points[i] > 0) {
+                        isZero = false;
+                        break;
+                    }
+                }
+                if (isZero) {
+                    if (!wasAllZero) {
+                        wasAllZero = true;
+                        GlobalStates.visualizerPoints = points;
+                    }
+                } else {
+                    wasAllZero = false;
+                    GlobalStates.visualizerPoints = points;
+                }
             }
         }
     }
@@ -156,6 +172,7 @@ Scope {
                     GlobalFocusGrab.addDismissable(panelWindow);
             }
             Component.onDestruction: {
+                GlobalStates.mediaDropdownHovered = false;
                 if (!Config.options.bar.media.alwaysVisible)
                     GlobalFocusGrab.removeDismissable(panelWindow);
             }
@@ -171,6 +188,14 @@ Scope {
                 id: playerColumnLayout
                 anchors.fill: parent
                 spacing: -Appearance.sizes.elevationMargin // Shadow overlap okay
+
+                HoverHandler {
+                    id: panelHoverHandler
+                    onHoveredChanged: {
+                        GlobalStates.mediaDropdownHovered = hovered;
+                        GlobalStates.checkMediaControlsHover();
+                    }
+                }
 
                 Repeater {
                     model: ScriptModel {
@@ -238,17 +263,17 @@ Scope {
         target: "mediaControls"
 
         function toggle(): void {
-            mediaControlsLoader.active = !mediaControlsLoader.active;
-            if (mediaControlsLoader.active)
+            GlobalStates.mediaControlsOpen = !GlobalStates.mediaControlsOpen;
+            if (GlobalStates.mediaControlsOpen)
                 Notifications.timeoutAll();
         }
 
         function close(): void {
-            mediaControlsLoader.active = false;
+            GlobalStates.mediaControlsOpen = false;
         }
 
         function open(): void {
-            mediaControlsLoader.active = true;
+            GlobalStates.mediaControlsOpen = true;
             Notifications.timeoutAll();
         }
     }

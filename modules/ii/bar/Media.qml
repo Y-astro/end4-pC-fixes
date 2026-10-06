@@ -92,10 +92,31 @@ Item {
         onTriggered: activePlayer.positionChanged()
     }
 
+    HoverHandler {
+        id: mediaHoverHandler
+        onHoveredChanged: {
+            GlobalStates.mediaHovered = hovered;
+            GlobalStates.checkMediaControlsHover();
+        }
+    }
+
+    Component.onDestruction: {
+        GlobalStates.mediaHovered = false;
+        GlobalStates.checkMediaControlsHover();
+    }
+
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.MiddleButton | Qt.BackButton | Qt.ForwardButton | Qt.RightButton | Qt.LeftButton
-        hoverEnabled: !Config.options.bar.tooltips.clickToShow
+        hoverEnabled: true
+        onEntered: {
+            GlobalStates.mediaHovered = true;
+            GlobalStates.checkMediaControlsHover();
+        }
+        onExited: {
+            GlobalStates.mediaHovered = mediaHoverHandler.hovered;
+            GlobalStates.checkMediaControlsHover();
+        }
         onPressed: (event) => {
             if (event.button === Qt.MiddleButton)      activePlayer?.togglePlaying()
             else if (event.button === Qt.BackButton)   activePlayer?.previous()

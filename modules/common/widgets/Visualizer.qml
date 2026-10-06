@@ -23,6 +23,7 @@ Item {
         : Appearance.sizes.barHeight) * 0.7
     property real maxVisualizerValue: 1000
     property color barColor: Appearance.colors.colPrimary
+    property bool useGpuShader: true
 
     implicitWidth: vertical
         ? Appearance.sizes.verticalBarWidth
@@ -40,10 +41,40 @@ Item {
         origin.x: root.width / 2
     }
 
+    // ── Single-Pass GPU Shader Visualizer (SDF Bars) ──
+    SpectrumField {
+        id: gpuSpectrum
+        visible: root.useGpuShader
+        anchors.centerIn: parent
+        width: root.vertical ? root.maxBarHeight : (root.barCount * (root.dotSize + root.dotSpacing))
+        height: root.vertical ? (root.barCount * (root.dotSize + root.dotSpacing)) : root.maxBarHeight
+        grow: root.vertical ? (root.mirrored ? "left" : "right") : "center"
+        style: "bars"
+        shape: "rounded"
+        thickness: 0.58
+        glow: 0.2
+        ramp: [root.barColor, root.barColor]
+        fade: root.isPlaying ? 0.9 : 0.0
 
+        levels: {
+            if (!root.isPlaying || root.points.length === 0) return []
+            const count = root.barCount
+            const res = new Array(count)
+            const ptsLen = root.points.length
+            for (let i = 0; i < count; i++) {
+                const rawIdx = root.vertical && root.mirrored ? (count - 1 - i) : i
+                const idx = Math.floor(rawIdx * ptsLen / count)
+                const v = root.points[idx] ?? 0
+                res[i] = Math.min(1.0, Math.max(0.04, v / root.maxVisualizerValue))
+            }
+            return res
+        }
+    }
+
+    // ── CPU Multi-Rectangle Fallback ──
     Row {
         id: barsRow
-        visible: !root.vertical
+        visible: !root.vertical && !root.useGpuShader
         anchors.centerIn: parent
         spacing: root.dotSpacing
 
@@ -71,7 +102,7 @@ Item {
 
     Column {
         id: barsColumn
-        visible: root.vertical
+        visible: root.vertical && !root.useGpuShader
         anchors.centerIn: parent
         spacing: root.dotSpacing
 

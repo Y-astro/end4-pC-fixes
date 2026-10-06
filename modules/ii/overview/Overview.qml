@@ -2,7 +2,6 @@ import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
-import Qt.labs.synchronizer
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -15,228 +14,962 @@ Scope {
     id: overviewScope
     property bool dontAutoCancelSearch: false
 
-    PanelWindow {
-        id: panelWindow
-        property string searchingText: ""
-        readonly property HyprlandMonitor monitor: Hyprland.monitorFor(panelWindow.screen)
-        readonly property bool barCenterOnly: Config.options.bar.layouts.leftLayout.length === 0
-            && Config.options.bar.layouts.rightLayout.length === 0
-            && !Config.options.bar.vertical
+    signal setSearchingTextRequested(string text)
+    signal exitActivePanelRequested
 
-        readonly property bool barOverlapActive: panelWindow.barCenterOnly
-            && Config.options.bar.centerOnlyReserveFrame
-            && !Config.options.bar.bottom
-            && !Config.options.bar.autoHide.enable
-        property bool monitorIsFocused: (Hyprland.focusedMonitor?.id == monitor?.id)
-        visible: GlobalStates.overviewOpen
+    Loader {
+        id: overviewVariantsLoader
+        // Keep this Scope alive for shortcuts and IPC, but do not construct the
+        // classic per-monitor windows while the shared App Drawer is selected.
+        active: !GlobalStates.overviewUsesAppDrawer
+            && !GlobalStates.searchConnectActive
+            && !GlobalStates.floatingNotchOwnsSearch
+        sourceComponent: Component {
+            Variants {
+                id: overviewVariant
 
-        WlrLayershell.namespace: "quickshell:overview"
-        WlrLayershell.layer: WlrLayer.Top
-        WlrLayershell.keyboardFocus: GlobalStates.overviewOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
-        color: "transparent"
+                property var variantModel: Quickshell.screens
 
-        mask: Region {
-            item: GlobalStates.overviewOpen ? columnLayout : null
-        }
+                model: overviewVariant.variantModel
 
-        anchors {
-            top: true
-            bottom: true
-            left: true
-            right: true
-        }
+                LazyLoader {
+                    id: realOverviewLoader
+                    required property var modelData
+                    readonly property HyprlandMonitor monitor: Hyprland.monitorFor(modelData)
+                    property int monitorIndex: overviewVariant.variantModel.indexOf(modelData)
+                    // `monitorFor()` can briefly be null while the screen list
+                    // is settling. Comparing two undefined names made every
+                    // per-screen loader look focused during that window. Use
+                    // the stable ShellScreen name and require a real focused
+                    // monitor so only one surface can be active.
+                    readonly property string screenName: modelData ? modelData.name : ""
+                    readonly property string focusedMonitorName: Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
+                    property bool monitorIsFocused: Quickshell.screens.length <= 1
+                        || (screenName !== "" && focusedMonitorName !== "" && screenName === focusedMonitorName)
+                    property bool contentKeepAlive: false
+                    // Keep the focused window alive while it is visible or
+                    // while its closing animation still has pixels on screen.
+                    // The Scope and IPC shortcuts remain loaded, but this
+                    // expensive per-monitor PanelWindow is destroyed otherwise.
+                    property bool visualActive: false
 
-        Connections {
-            target: GlobalStates
-            function onOverviewOpenChanged() {
-                if (!GlobalStates.overviewOpen) {
-                    searchWidget.disableExpandAnimation();
-                    overviewScope.dontAutoCancelSearch = false;
-                    GlobalFocusGrab.dismiss();
-                } else {
-                    if (!overviewScope.dontAutoCancelSearch) {
-                        searchWidget.cancelSearch();
+                    // The loaded window flips these from inside its own creation and destruction,
+                    // which run inside the write of `active` itself; a synchronous write there is
+                    // a binding loop, so the flip lands one tick later.
+                    function setVisualActiveLater(value) {
+                        Qt.callLater(() => {
+                            if (realOverviewLoader) realOverviewLoader.visualActive = value;
+                        });
                     }
-                    GlobalFocusGrab.addDismissable(panelWindow);
-                }
-            }
-        }
+                    function setContentKeepAliveLater(value) {
+                        Qt.callLater(() => {
+                            if (realOverviewLoader) realOverviewLoader.contentKeepAlive = value;
+                        });
+                    }
 
-        Connections {
-            target: GlobalFocusGrab
-            function onDismissed() {
-                GlobalStates.overviewOpen = false;
-            }
-        }
-        implicitWidth: columnLayout.implicitWidth
-        implicitHeight: columnLayout.implicitHeight
+                    onMonitorIsFocusedChanged: {
+                        if (!monitorIsFocused) {
+                            visualActive = false;
+                        }
+                    }
 
-        function setSearchingText(text) {
-            searchWidget.setSearchingText(text);
-            searchWidget.focusFirstItem();
-        }
+                    // With the scrolling layout the window stays built between opens
+                    // (unmapped while closed, so it draws nothing): rebuilding the
+                    // search and every workspace row on each open is what stalled
+                    // the first frames, worst after the shell had been idle.
+                    readonly property bool residentForScrolling: (Persistent.states?.hyprland?.layout ?? "") === "scrolling"
+                        && (Config.options.overview.enable ?? true)
+                    active: monitorIsFocused && (contentKeepAlive || GlobalStates.overviewOpen || visualActive || residentForScrolling)
 
-        Column {
-            id: columnLayout
-            visible: GlobalStates.overviewOpen
-            opacity: GlobalStates.overviewOpen ? 1 : 0
-            scale: GlobalStates.overviewOpen ? 1 : 0.85
-            transformOrigin: Item.Top
-            anchors {
-                horizontalCenter: parent.horizontalCenter
-                top: parent.top
-                topMargin: panelWindow.barOverlapActive
-                    ? Appearance.sizes.barHeight - Config.options.bar.frameThickness
-                    : 0
-            }
-            spacing: -8
+                    onItemChanged: {
+                        // Close-time cleanup runs before the exit animation ends.
+                        // Collect wrappers only after the window tree is released.
+                        if (!item)
+                            Qt.callLater(LauncherSearch.collectReleasedResults);
+                    }
 
-            Behavior on opacity {
-                NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
-            }
-            Behavior on scale {
-                NumberAnimation { duration: 400; easing.type: Easing.BezierSpline; easing.bezierCurve: Appearance.animationCurves.expressiveDefaultSpatial }
-            }
+                    component: PanelWindow {
+                        id: root
 
-            Keys.onPressed: event => {
-                if (event.key === Qt.Key_Escape) {
-                    GlobalStates.overviewOpen = false;
-                } else if (event.key === Qt.Key_Left) {
-                    if (!panelWindow.searchingText)
-                        Hyprland.dispatch("workspace r-1");
-                } else if (event.key === Qt.Key_Right) {
-                    if (!panelWindow.searchingText)
-                        Hyprland.dispatch("workspace r+1");
-                }
-            }
+                        screen: realOverviewLoader.modelData
+                        readonly property bool monitorIsFocused: realOverviewLoader.monitorIsFocused
+                        readonly property int monitorIndex: realOverviewLoader.monitorIndex
+                        readonly property bool keepAlive: searchWidget.keepAlive
+                        readonly property bool isBottomBar: !BarPlacement.vertical && BarPlacement.bottom
 
-            SearchWidget {
-                id: searchWidget
-                anchors.horizontalCenter: parent.horizontalCenter
-                Synchronizer on searchingText {
-                    property alias source: panelWindow.searchingText
-                }
-            }
+                        readonly property bool isScrollingLayout: (Persistent.states?.hyprland?.layout ?? "") === "scrolling"
+                        readonly property var backgroundController: GlobalStates.overviewBackgroundControllerFor(root.screen?.name ?? "")
+                        readonly property bool backgroundAnimating: backgroundController
+                            && backgroundController.progress > 0.001 && backgroundController.progress < 0.999
+                        readonly property string animStyle: (Config.options?.overview?.animationStyle === "none") ? "none" : ((GlobalStates.searchCenterMode || (Config.options?.search?.suggestions?.enable ?? false)) ? "zoom" : (Config.options?.overview?.animationStyle ?? "bounce"))
 
-            Loader {
-                id: overviewLoader
-                active: GlobalStates.overviewOpen && (Config?.options.overview.enable ?? true)
-                sourceComponent: (Config?.options.overview.style ?? "default") === "niri" ? niriComponent : defaultComponent
+                        WlrLayershell.namespace: "quickshell:overview"
+                        WlrLayershell.layer: WlrLayer.Overlay
+                        WlrLayershell.keyboardFocus: root.monitorIsFocused && GlobalStates.overviewOpen
+                            ? WlrKeyboardFocus.OnDemand
+                            : WlrKeyboardFocus.None
+                        color: "transparent"
 
-                Component {
-                    id: defaultComponent
-                    OverviewWidget {
-                        screen: panelWindow.screen
-                        visible: (panelWindow.searchingText == "")
+                        property int animDurationEnter: root.animStyle === "none" ? 0 : Math.round(420 * Appearance.animMultiplier)
+                        property int animDurationExit: root.animStyle === "none" ? 0 : Math.round(260 * Appearance.animMultiplier)
+                        property list<real> animCurveEnter: Appearance.animationCurves.expressiveFastSpatial
+                        property list<real> animCurveExit: Appearance.animationCurves.emphasizedAccel
+                        property bool isClosing: false
+                        /**
+                         * Whether a panel (AI or hosted) owns the search surface.
+                         * `GlobalStates` is read first on purpose: it is a singleton,
+                         * so the binding always records a dependency on it, while an
+                         * `id` that is not yet constructed when the binding is first
+                         * evaluated records none at all.
+                         */
+                        function evaluateSearchPanelOwned() {
+                            return GlobalStates.searchPanelActive
+                                || (searchWidget?.isAiMode ?? false)
+                                || (searchWidget?.isAnySpecialMode ?? false);
+                        }
+                        /**
+                         * Panel ownership plus an ordinary query. Only the panel half
+                         * unloads the grid: destroying it for every keystroke would
+                         * rebuild every window thumbnail as soon as the query cleared.
+                         */
+                        function evaluateSearchSurfaceOwned() {
+                            return root.evaluateSearchPanelOwned()
+                                || GlobalStates.activeSearchQuery !== ""
+                                || LauncherSearch.query !== "";
+                        }
+                        /**
+                         * Read this through the function, never through the property,
+                         * from anything that runs inside a change handler.
+                         *
+                         * The properties below are ordinary bindings, so they are
+                         * refreshed by the same change notification that runs the
+                         * handlers calling `syncOverviewReveal()` — and nothing orders
+                         * a binding ahead of a `Connections` slot on the same signal.
+                         * The `||` chain makes the order observable: while a panel owns
+                         * the search the chain short-circuits, drops its dependency on
+                         * `LauncherSearch.query`, and re-registers it behind the slot
+                         * when the panel closes. From then on the handler saw the
+                         * previous value of `overviewShouldShow`: leaving a panel left
+                         * the grid hidden with an empty query, and the next keystroke
+                         * revealed it underneath the results. Recomputing from the
+                         * primitives cannot be stale, whoever calls it.
+                         */
+                        function evaluateOverviewShouldShow() {
+                            return !root.evaluateSearchSurfaceOwned()
+                                && !GlobalStates.searchOnlyMode
+                                && !GlobalStates.searchCenterMode
+                                && !Config.options.search.suggestions.enable
+                                && (Config?.options.overview.enable ?? true);
+                        }
+                        readonly property bool searchPanelOwned: root.evaluateSearchPanelOwned()
+                        readonly property bool searchSurfaceOwned: root.evaluateSearchSurfaceOwned()
+                        readonly property bool overviewShouldShow: root.evaluateOverviewShouldShow()
+                        // Covers every input that has no explicit Connections of its
+                        // own (search-only, centred search, suggestions, the overview
+                        // toggle): the handler of a property always runs after that
+                        // property holds its new value.
+                        onOverviewShouldShowChanged: root.syncOverviewReveal()
+                        property real overviewRevealProgress: 1.0
+                        property real overviewFadeProgress: 1.0
+                        property bool _overviewRevealInitialized: false
+                        /**
+                         * How far the grid has left because the search took the screen.
+                         *
+                         * Typing used to zero the reveal on the spot, so the grid did
+                         * not leave at all — it vanished under a panel that was only
+                         * starting to grow. It is now pushed out the way the search
+                         * grows, away from the bar: the classic grid's anchor carries
+                         * it along with the growing surface, and `overviewExitShift`
+                         * adds a push while it fades. Pulling it up towards the bar
+                         * instead read as the grid fleeing into the search. Clearing
+                         * the query plays the push backwards.
+                         */
+                        property real overviewExitProgress: 0.0
+                        // The grid is pushed the way the search grows: away from
+                        // the bar. Its anchor already carries it along with the
+                        // growing surface; this is the extra push it gets while it
+                        // fades, so it reads as shoved aside rather than pulled up.
+                        readonly property real overviewExitShift: root.overviewExitProgress
+                            * (root.isBottomBar ? -1 : 1) * Appearance.sizes.elevationMargin * 6
+
+                        /**
+                         * The push runs on the search surface's own height animation
+                         * (duration and curve), so grid and surface move as one.
+                         *
+                         * The fade spans the same duration on OutCubic. The surface's
+                         * growth — which carries the grid — does most of its travel in
+                         * the first frames: a linear fade left the grid opaque while it
+                         * was already far down, and one on the growth's own curve over
+                         * half the span made it vanish before it had visibly moved.
+                         */
+                        readonly property int overviewPushDuration: root.animStyle === "none" ? 0 : Appearance.animation.elementMoveSmall.duration
+                        ParallelAnimation {
+                            id: overviewExitAnim
+                            NumberAnimation {
+                                target: root
+                                property: "overviewExitProgress"
+                                to: 1.0
+                                duration: root.overviewPushDuration
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Appearance.animationCurves.emphasizedDecel
+                            }
+                            NumberAnimation {
+                                target: root
+                                property: "overviewFadeProgress"
+                                to: 0.0
+                                // Between the two extremes already tried: linear over
+                                // the push left the grid opaque far down the screen,
+                                // emphasizedDecel over half of it was gone almost at once.
+                                duration: root.overviewPushDuration
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+
+                        ParallelAnimation {
+                            id: overviewReturnAnim
+                            NumberAnimation {
+                                target: root
+                                property: "overviewExitProgress"
+                                to: 0.0
+                                duration: root.animDurationEnter
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: root.animCurveEnter
+                            }
+                            NumberAnimation {
+                                target: root
+                                property: "overviewFadeProgress"
+                                to: 1.0
+                                duration: root.animDurationEnter
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+
+                        ParallelAnimation {
+                            id: overviewRevealAnim
+                            NumberAnimation {
+                                target: root
+                                property: "overviewRevealProgress"
+                                from: 0.0
+                                to: 1.0
+                                duration: root.animDurationEnter
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: root.animCurveEnter
+                            }
+                            NumberAnimation {
+                                target: root
+                                property: "overviewFadeProgress"
+                                from: 0.0
+                                to: 1.0
+                                duration: root.animDurationEnter
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+
+                        function syncOverviewReveal() {
+                            if (!root._overviewRevealInitialized)
+                                return;
+
+                            if (!GlobalStates.overviewOpen)
+                                return;
+
+                            const shouldShow = root.evaluateOverviewShouldShow();
+                            // Only a slide style has somewhere to leave to; "zoom"
+                            // never shows the grid and "none" must stay instant.
+                            const slides = root.animStyle !== "none" && root.animStyle !== "zoom";
+
+                            if (!shouldShow) {
+                                overviewRevealAnim.stop();
+                                overviewReturnAnim.stop();
+                                if (!slides || root.overviewFadeProgress <= 0.001) {
+                                    overviewExitAnim.stop();
+                                    root.overviewRevealProgress = 0.0;
+                                    root.overviewFadeProgress = 0.0;
+                                    root.overviewExitProgress = 0.0;
+                                    return;
+                                }
+                                // A keystroke per frame calls this repeatedly: let the
+                                // exit that is already running finish.
+                                if (overviewExitAnim.running)
+                                    return;
+                                overviewExitAnim.start();
+                                return;
+                            }
+
+                            overviewExitAnim.stop();
+
+                            if (root.animStyle === "none") {
+                                overviewRevealAnim.stop();
+                                overviewReturnAnim.stop();
+                                root.overviewRevealProgress = 1.0;
+                                root.overviewFadeProgress = 1.0;
+                                root.overviewExitProgress = 0.0;
+                                return;
+                            }
+
+                            // The grid left because of the search: bring it back along
+                            // the path it took, from wherever the exit got to.
+                            if (root.overviewExitProgress > 0) {
+                                overviewRevealAnim.stop();
+                                root.overviewRevealProgress = 1.0;
+                                if (!overviewReturnAnim.running)
+                                    overviewReturnAnim.start();
+                                return;
+                            }
+                            overviewRevealAnim.stop();
+
+                            // Force a real 0 -> 1 transition. This is intentionally
+                            // explicit instead of relying on a Behavior over a binding.
+                            root.overviewRevealProgress = 0.0;
+                            root.overviewFadeProgress = 0.0;
+                            Qt.callLater(() => {
+                                if (GlobalStates.overviewOpen && root.evaluateOverviewShouldShow())
+                                    overviewRevealAnim.start();
+                            });
+                        }
+
+                        function consumePendingSearchQuery() {
+                            if (!GlobalStates.activeSearchQuery)
+                                return;
+                            root.setSearchingText(GlobalStates.activeSearchQuery);
+                            GlobalStates.activeSearchQuery = "";
+                        }
+
+                        Connections {
+                            target: LauncherSearch
+                            function onQueryChanged() {
+                                root.syncOverviewReveal();
+                            }
+                        }
+
+                        Connections {
+                            target: searchWidget
+                            function onIsAnySpecialModeChanged() {
+                                root.syncOverviewReveal();
+                            }
+                            function onIsAiModeChanged() {
+                                root.syncOverviewReveal();
+                            }
+                        }
+
+                        Connections {
+                            target: GlobalStates
+                            function onSearchPanelActiveChanged() {
+                                root.syncOverviewReveal();
+                            }
+                            function onActiveSearchQueryChanged() {
+                                root.syncOverviewReveal();
+                            }
+                            function onOverviewOpenChanged() {
+                                // A grid that left for the search last session must
+                                // enter with the window, not slide back from the bar
+                                // on top of the window's own entrance.
+                                if (GlobalStates.overviewOpen) {
+                                    overviewExitAnim.stop();
+                                    overviewReturnAnim.stop();
+                                    root.overviewExitProgress = 0.0;
+                                }
+                                // The reveal is decided while the surface is open;
+                                // every change that led up to the open was rejected
+                                // by the guard at the top of syncOverviewReveal.
+                                Qt.callLater(root.syncOverviewReveal);
+                            }
+                        }
+
+                        Component.onCompleted: {
+                            realOverviewLoader.setVisualActiveLater(true);
+                            root.overviewRevealProgress = root.evaluateOverviewShouldShow() ? 1.0 : 0.0;
+                            root.overviewFadeProgress = root.overviewRevealProgress;
+                            root._overviewRevealInitialized = true;
+                            root.consumePendingSearchQuery();
+                        }
+
+                        onKeepAliveChanged: realOverviewLoader.setContentKeepAliveLater(keepAlive)
+                        Component.onDestruction: realOverviewLoader.setContentKeepAliveLater(false)
+
+                        visible: root.monitorIsFocused
+                            && (GlobalStates.overviewOpen || searchWidgetWrapper.slideOpacity > 0 || realOverviewLoader.residentForScrolling)
+                        onVisibleChanged: {
+                            if (root.visible)
+                                realOverviewLoader.setVisualActiveLater(true);
+                            else if (!GlobalStates.overviewOpen)
+                                realOverviewLoader.setVisualActiveLater(false);
+                        }
+
+                        // Closed but still mapped (scrolling layout), the window must take
+                        // no input at all: an empty item, not a null one, is the empty region.
+                        mask: Region {
+                            item: root.monitorIsFocused && GlobalStates.overviewOpen ? contentItem : noInputRegion
+                        }
+                        Item {
+                            id: noInputRegion
+                            width: 0
+                            height: 0
+                        }
+
+                        anchors {
+                            top: true
+                            bottom: true
+                            left: true
+                            right: true
+                        }
+                        property int barSize: BarPlacement.vertical ? Appearance.sizes.verticalBarWindowWidth : Appearance.sizes.barHeight
+                        property int margin: barSize * 2
+                        margins {
+                            top: -margin * 2
+                            bottom: -margin * 2
+                            left: -margin * 2
+                            right: -margin * 2
+                        }
+
+                        Connections {
+                            target: GlobalStates
+                            function onOverviewOpenChanged() {
+                                if (!root.monitorIsFocused) {
+                                    delayedGrabTimer.stop();
+                                    grab.active = false;
+                                    return;
+                                }
+                                if (!GlobalStates.overviewOpen) {
+                                    searchWidget.disableExpandAnimation();
+                                    overviewScope.dontAutoCancelSearch = false;
+                                } else {
+                                    const hasIncomingQuery = GlobalStates.activeSearchQuery.length > 0;
+                                    if (!hasIncomingQuery) {
+                                        overviewScope.dontAutoCancelSearch = false;
+                                    }
+                                    root.consumePendingSearchQuery();
+                                    delayedGrabTimer.start();
+                                }
+                            }
+                        }
+
+                        HyprlandFocusGrab {
+                            id: grab
+                            windows: [root]
+                            property bool canBeActive: root.monitorIsFocused || GlobalStates.overviewOpen
+                            active: false
+                        }
+
+                        // PanelWindow is a Wayland interface, not a QtQuick
+                        // Item, so a Keys attached property here is ignored.
+                        // Resolve Escape with a real window shortcut instead;
+                        // it remains active even when the composer lost focus.
+                        Shortcut {
+                            enabled: root.monitorIsFocused && GlobalStates.overviewOpen && searchWidget.isAiMode
+                            sequence: "Escape"
+                            onActivated: searchWidget.handleEscape()
+                        }
+
+                        Timer {
+                            id: delayedGrabTimer
+                            interval: Config.options.hacks.arbitraryRaceConditionDelay
+                            repeat: false
+                            onTriggered: {
+                                if (!grab.canBeActive)
+                                    return;
+                                grab.active = GlobalStates.overviewOpen;
+                                if (grab.active) {
+                                    searchWidget.focusSearchInput();
+                                }
+                            }
+                        }
+
+                        Connections {
+                            target: overviewScope
+                            function onSetSearchingTextRequested(text) {
+                                root.setSearchingText(text);
+                            }
+                            function onExitActivePanelRequested() {
+                                searchWidget.handleEscape();
+                            }
+                        }
+
+                        function setSearchingText(text) {
+                            if (!root.monitorIsFocused)
+                                return;
+                            searchWidget.setSearchingText(text);
+                            searchWidget.focusFirstItem();
+                        }
+
+                        Item {
+                            id: contentItem
+                            anchors.fill: parent
+
+                            MouseArea { // We could have used PanelWindow.mask to detect this, but this is more stable
+                                anchors.fill: parent
+                                enabled: root.monitorIsFocused && GlobalStates.overviewOpen
+                                onClicked: GlobalStates.overviewOpen = false
+                            }
+
+                            Item { // Wrapper for animation
+                                id: searchWidgetWrapper
+                                readonly property bool isNotchMode: Config.ready && (Config.options?.bar?.dynamicIsland?.notchMode?.enable ?? false)
+                                implicitHeight: isNotchMode ? GlobalStates.activeSearchHeight : searchWidget.implicitHeight
+                                implicitWidth: isNotchMode ? GlobalStates.activeSearchWidth : searchWidget.implicitWidth
+                                z: 999
+                                visible: !isNotchMode
+                                height: isNotchMode ? implicitHeight : searchWidget.height
+
+                                // Slide from top/bottom — direction matches top bar / bottom bar
+                                readonly property real slideOffset: (root.isBottomBar ? 1 : -1) * (implicitHeight + root.margin * 2 + Appearance.sizes.elevationMargin + 40)
+                                readonly property real initialYOffset: (root.animStyle === "none" || GlobalStates.searchCenterMode || (Config.options?.search?.suggestions?.enable ?? false)) ? 0 : (root.animStyle === "zoom" ? (root.isBottomBar ? 20 : -20) : searchWidgetWrapper.slideOffset)
+
+                                // Driven directly — no Behavior, to avoid QML skipping anim while invisible
+                                property real slideY: initialYOffset
+                                property real slideOpacity: 0.0
+
+                                opacity: isNotchMode ? 0.0 : slideOpacity
+                                transform: [
+                                    Translate {
+                                        y: searchWidgetWrapper.slideY
+                                    },
+                                    Scale {
+                                        origin.x: searchWidgetWrapper.width / 2
+                                        origin.y: searchWidgetWrapper.height / 2
+                                        xScale: root.animStyle === "zoom" ? (0.92 + 0.08 * searchWidgetWrapper.slideOpacity) : 1.0
+                                        yScale: root.animStyle === "zoom" ? (0.92 + 0.08 * searchWidgetWrapper.slideOpacity) : 1.0
+                                    }
+                                ]
+
+
+
+                                Timer {
+                                    id: slideInStartTimer
+                                    interval: 16 // 1 frame at 60fps — ensures QML paints reset before animating
+                                    repeat: false
+                                    onTriggered: {
+                                        slideInYAnim.from = searchWidgetWrapper.initialYOffset;
+                                        slideInYAnim.to = 0;
+                                        slideInOpacityAnim.from = 0.0;
+                                        slideInOpacityAnim.to = 1.0;
+                                        slideInParallel.start();
+                                    }
+                                }
+
+                                function triggerSlideIn() {
+                                    slideOutParallel.stop();
+                                    slideInParallel.stop();
+                                    slideInStartTimer.stop();
+                                    if (root.animStyle === "none") {
+                                        searchWidgetWrapper.slideY = 0;
+                                        searchWidgetWrapper.slideOpacity = 1.0;
+                                        return;
+                                    }
+                                    searchWidgetWrapper.slideY = searchWidgetWrapper.initialYOffset;
+                                    searchWidgetWrapper.slideOpacity = 0.0;
+                                    slideInYAnim.from = searchWidgetWrapper.initialYOffset;
+                                    slideInYAnim.to = 0;
+                                    slideInOpacityAnim.from = 0.0;
+                                    slideInOpacityAnim.to = 1.0;
+                                    slideInParallel.start();
+                                }
+
+                                function triggerSlideOut() {
+                                    slideInParallel.stop();
+                                    slideOutParallel.stop();
+                                    slideInStartTimer.stop();
+                                    if (root.animStyle === "none") {
+                                        searchWidgetWrapper.slideY = 0;
+                                        searchWidgetWrapper.slideOpacity = 0.0;
+                                        root.isClosing = false;
+                                        return;
+                                    }
+                                    slideOutYAnim.from = searchWidgetWrapper.slideY;
+                                    slideOutYAnim.to = searchWidgetWrapper.initialYOffset;
+                                    slideOutOpacityAnim.from = searchWidgetWrapper.slideOpacity;
+                                    slideOutOpacityAnim.to = 0.0;
+                                    slideOutParallel.start();
+                                }
+
+                                ParallelAnimation {
+                                    id: slideInParallel
+                                    NumberAnimation {
+                                        id: slideInYAnim
+                                        target: searchWidgetWrapper
+                                        property: "slideY"
+                                        duration: root.animDurationEnter
+                                        easing.type: root.animStyle === "bounce" ? Easing.OutBack : Easing.OutCubic
+                                        easing.overshoot: root.animStyle === "bounce" ? 1.2 : 0
+                                    }
+                                    NumberAnimation {
+                                        id: slideInOpacityAnim
+                                        target: searchWidgetWrapper
+                                        property: "slideOpacity"
+                                        duration: root.animDurationEnter
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
+
+                                ParallelAnimation {
+                                    id: slideOutParallel
+                                    NumberAnimation {
+                                        id: slideOutYAnim
+                                        target: searchWidgetWrapper
+                                        property: "slideY"
+                                        duration: root.animDurationExit
+                                        easing.type: Easing.InCubic
+                                    }
+                                    NumberAnimation {
+                                        id: slideOutOpacityAnim
+                                        target: searchWidgetWrapper
+                                        property: "slideOpacity"
+                                        duration: root.animDurationExit
+                                        easing.type: Easing.InCubic
+                                        onFinished: {
+                                            root.isClosing = false;
+                                        }
+                                    }
+                                }
+
+                                // A touchpad gesture is holding the reveal where the fingers are
+                                // (GlobalStates.gestureDragSurface): the slide is a position, not
+                                // an animation, until the gesture has settled.
+                                function applyGestureDrag() {
+                                    slideInParallel.stop();
+                                    slideOutParallel.stop();
+                                    slideInStartTimer.stop();
+                                    const held = root.animStyle === "none" ? 1 : GlobalStates.gestureDragProgress;
+                                    searchWidgetWrapper.slideY = searchWidgetWrapper.initialYOffset * (1 - held);
+                                    searchWidgetWrapper.slideOpacity = GlobalStates.gestureDragProgress;
+                                }
+
+                                Connections {
+                                    target: root
+                                    function onVisibleChanged() {
+                                        if (root.visible && GlobalStates.overviewDragging) {
+                                            searchWidgetWrapper.applyGestureDrag();
+                                            return;
+                                        }
+                                        if (root.visible && GlobalStates.overviewOpen) {
+                                            // Window just became visible — trigger slide-in from scratch
+                                            searchWidgetWrapper.triggerSlideIn();
+                                        }
+                                    }
+                                }
+
+                                Connections {
+                                    target: GlobalStates
+                                    function onGestureDragProgressChanged() {
+                                        if (GlobalStates.overviewDragging)
+                                            searchWidgetWrapper.applyGestureDrag();
+                                    }
+                                    function onOverviewOpenChanged() {
+                                        if (GlobalStates.overviewDragging) {
+                                            searchWidgetWrapper.applyGestureDrag();
+                                            return;
+                                        }
+                                        if (GlobalStates.overviewOpen) {
+                                            if (root.visible) {
+                                                searchWidgetWrapper.triggerSlideIn();
+                                            }
+                                            // If not visible yet, onVisibleChanged will handle it
+                                        } else {
+                                            searchWidgetWrapper.triggerSlideOut();
+                                        }
+                                    }
+                                }
+
+                                Keys.onPressed: event => {
+                                    if (event.key === Qt.Key_Escape) {
+                                        if (searchWidget.handleEscape()) {
+                                            event.accepted = true;
+                                            return;
+                                        }
+                                        GlobalStates.overviewOpen = false;
+                                    }
+                                }
+
+                                width: implicitWidth
+                                readonly property real centeredPreferredY: parent.height * Config.options.search.centerVerticalRatio - 29
+                                readonly property real centeredSafeInset: root.margin * 2 + Appearance.sizes.elevationMargin
+                                readonly property real centeredMaximumY: parent.height - searchWidget.implicitHeight - centeredSafeInset
+                                y: GlobalStates.searchCenterMode
+                                    ? Math.max(centeredSafeInset, Math.min(centeredPreferredY, centeredMaximumY))
+                                    : (root.isBottomBar ? (parent.height - searchWidget.implicitHeight - (root.margin * 2 + Appearance.sizes.elevationMargin)) : (root.margin * 2 + Appearance.sizes.elevationMargin))
+                                anchors.horizontalCenter: parent.horizontalCenter
+
+                                SearchWidget {
+                                    id: searchWidget
+                                    surfaceAnimating: (root.animStyle !== "none") && (slideInParallel.running || slideOutParallel.running || root.backgroundAnimating)
+                                    shadowOpacity: searchWidgetWrapper.slideOpacity
+                                    surfaceMonitorName: root.screen?.name ?? ""
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                }
+                            }
+
+                            Loader { // Classic overview
+                                id: overviewLoader
+                                anchors.bottom: root.isBottomBar ? searchWidgetWrapper.top : undefined
+                                anchors.top: root.isBottomBar ? undefined : searchWidgetWrapper.bottom
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                // A panel owning the search destroys the grid rather
+                                // than merely fading it: AI mode was already handled
+                                // this way, and leaving every other hosted panel to
+                                // opacity alone is what let the workspaces stay on
+                                // screen behind them.
+                                active: root.visible && !GlobalStates.searchOnlyMode && !GlobalStates.searchCenterMode && !Config.options.search.suggestions.enable && (Config?.options.overview.enable ?? true) && !root.isScrollingLayout && !root.searchPanelOwned
+                                // Driven by the reveal progress alone. Gating this on
+                                // `overviewShouldShow` too meant a panel that opened
+                                // without ever changing the query could leave the grid
+                                // on screen behind it.
+                                opacity: searchWidgetWrapper.slideOpacity * root.overviewFadeProgress
+                                visible: opacity > 0.001
+
+
+
+                                transform: [
+                                    Translate {
+                                        y: root.animStyle === "none" ? 0 : (root.animStyle === "zoom" ? ((1.0 - Math.min(1.0, Math.max(0.0, overviewLoader.opacity))) * (root.isBottomBar ? 30 : -30)) : searchWidgetWrapper.slideY + ((1.0 - root.overviewRevealProgress) * (root.isBottomBar ? -30 : 30)) + root.overviewExitShift)
+                                    },
+                                    Scale {
+                                        origin.x: overviewLoader.implicitWidth / 2
+                                        origin.y: overviewLoader.implicitHeight / 2
+                                        xScale: root.animStyle === "zoom" ? (0.92 + 0.08 * Math.min(1.0, Math.max(0.0, overviewLoader.opacity))) : 1.0
+                                        yScale: root.animStyle === "zoom" ? (0.92 + 0.08 * Math.min(1.0, Math.max(0.0, overviewLoader.opacity))) : 1.0
+                                    }
+                                ]
+
+                                sourceComponent: OverviewWidget {
+                                    panelWindow: root
+                                    visible: root.overviewFadeProgress > 0.001
+                                    monitorIndex: root.monitorIndex
+                                }
+                            }
+
+                            Loader { // Scrolling overview
+                                id: scrollingOverviewLoader
+                                // Exactly the monitor: the window reaches past it on every
+                                // side (negative margins), and the background zoom aims at
+                                // the rows in screen coordinates.
+                                readonly property var reserved: HyprlandData.monitors.find(m => m.name === root.screen?.name)?.reserved ?? [0, 0, 0, 0]
+                                x: root.margin * 2 - reserved[0]
+                                y: root.margin * 2 - reserved[1]
+                                width: root.screen?.width ?? parent.width
+                                height: root.screen?.height ?? parent.height
+                                active: (root.visible || realOverviewLoader.residentForScrolling) && !GlobalStates.searchOnlyMode && !GlobalStates.searchCenterMode && !Config.options.search.suggestions.enable && (Config?.options.overview.enable ?? true) && root.isScrollingLayout && !root.searchPanelOwned
+                                // The rows play their own entrance and exit; the window
+                                // only shows the layer while the search is on screen.
+                                visible: searchWidgetWrapper.slideOpacity > 0.001
+
+                                sourceComponent: ScrollingOverviewWidget {
+                                    id: scrollingOverview
+                                    anchors.fill: parent
+                                    panelWindow: root
+                                    monitorIndex: root.monitorIndex
+                                    presented: root.overviewShouldShow
+                                    // Measured from the collapsed search, so results
+                                    // growing out of it never move the rows.
+                                    // Only a real measurement is taken: the field reports a
+                                    // few pixels for its first frames of each open, and
+                                    // following that re-laid every row out (and re-aimed the
+                                    // background zoom) right as it began.
+                                    // (A Binding with `when` briefly applied its stale value.)
+                                    property real searchChrome: Appearance.sizes.elevationMargin * 3 + Math.max(56, searchWidget.normalSearchChromeHeight)
+                                    Connections {
+                                        target: searchWidget
+                                        function onNormalSearchChromeHeightChanged() {
+                                            const chrome = searchWidget.normalSearchChromeHeight;
+                                            if (chrome > 24)
+                                                scrollingOverview.searchChrome = Appearance.sizes.elevationMargin * 3 + chrome;
+                                        }
+                                    }
+                                    topInset: root.isBottomBar ? Appearance.sizes.elevationMargin * 2 : scrollingOverviewLoader.reserved[1] + searchChrome
+                                    bottomInset: root.isBottomBar ? scrollingOverviewLoader.reserved[3] + searchChrome : Appearance.sizes.elevationMargin
+                                }
+                            }
+                        }
                     }
                 }
-
-                Component {
-                    id: niriComponent
-                    NiriOverview {
-                        screen: panelWindow.screen
-                        panelWindow: panelWindow
-                        visible: (panelWindow.searchingText == "")
-                    }
-                }
             }
+        }
+    }
+
+    onSetSearchingTextRequested: text => {
+        if (GlobalStates.searchConnectActive || GlobalStates.floatingNotchOwnsSearch) {
+            GlobalStates.activeSearchQuery = text;
+        }
+    }
+
+    function togglePrefixedSearch(prefix) {
+        GlobalStates.superReleaseMightTrigger = false;
+        if (GlobalStates.overviewUsesAppDrawer) {
+            const panel = SearchPanelRegistry.resolve(prefix);
+            if (panel)
+                GlobalStates.toggleAppDrawerTool("", panel.id);
+            else
+                GlobalStates.toggleOverview();
+            return;
+        }
+        if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch && LauncherSearch.query.startsWith(prefix)) {
+            GlobalStates.overviewOpen = false;
+            return;
+        }
+        overviewScope.dontAutoCancelSearch = true;
+        if (GlobalStates.overviewOpen) {
+            overviewScope.setSearchingTextRequested(prefix);
+        } else {
+            // The default overview is lazy-loaded. Keep the prefix until its
+            // PanelWindow exists so the first shortcut press is not lost.
+            GlobalStates.activeSearchQuery = prefix;
+            GlobalStates.panelOpenedDirectly = true;
+            GlobalStates.overviewOpen = true;
         }
     }
 
     function toggleClipboard() {
-        if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch) {
-            GlobalStates.overviewOpen = false;
-            return;
-        }
-        overviewScope.dontAutoCancelSearch = true;
-        panelWindow.setSearchingText(Config.options.search.prefix.clipboard);
-        GlobalStates.overviewOpen = true;
+        togglePrefixedSearch(Config.options.search.prefix.clipboard);
     }
 
     function toggleEmojis() {
-        if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch) {
-            GlobalStates.overviewOpen = false;
-            return;
-        }
-        overviewScope.dontAutoCancelSearch = true;
-        panelWindow.setSearchingText(Config.options.search.prefix.emojis);
-        GlobalStates.overviewOpen = true;
+        togglePrefixedSearch(Config.options.search.prefix.emojis);
     }
 
-    function toggleSymbols() {
-        if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch) {
-            GlobalStates.overviewOpen = false;
+    function toggleBluetooth() {
+        togglePrefixedSearch(Config.options.search.prefix.bluetooth);
+    }
+
+    function toggleMaterialSymbols() {
+        togglePrefixedSearch(Config.options.search.prefix.materialSymbols);
+    }
+
+    function toggleTranslator() {
+        togglePrefixedSearch(Config.options.search.prefix.translator);
+    }
+
+    function toggleTypingTest() {
+        togglePrefixedSearch(Config.options.search.prefix.typingTest);
+    }
+
+    function toggleAi() {
+        if (!SearchPanelRegistry.aiPolicyEnabled)
             return;
-        }
-        overviewScope.dontAutoCancelSearch = true;
-        panelWindow.setSearchingText(Config.options.search.prefix.symbols);
-        GlobalStates.overviewOpen = true;
+        togglePrefixedSearch(Config.options.search.prefix.ai);
     }
 
     IpcHandler {
         target: "search"
 
         function toggle() {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            GlobalStates.toggleOverview();
         }
         function workspacesToggle() {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            GlobalStates.toggleOverview();
         }
         function close() {
-            GlobalStates.overviewOpen = false;
+            GlobalStates.closeOverview();
         }
         function open() {
-            GlobalStates.overviewOpen = true;
+            GlobalStates.openOverview();
+        }
+        function setQuery(text: string): void {
+            if (GlobalStates.overviewUsesAppDrawer)
+                GlobalStates.appDrawerQuery = text;
+            else
+                overviewScope.setSearchingTextRequested(text);
         }
         function toggleReleaseInterrupt() {
             GlobalStates.superReleaseMightTrigger = false;
         }
         function clipboardToggle() {
+            GlobalStates.superReleaseMightTrigger = false;
             overviewScope.toggleClipboard();
+        }
+        function bluetoothToggle() {
+            GlobalStates.superReleaseMightTrigger = false;
+            overviewScope.toggleBluetooth();
+        }
+        function materialSymbolsToggle() {
+            GlobalStates.superReleaseMightTrigger = false;
+            overviewScope.toggleMaterialSymbols();
+        }
+        function translatorToggle() {
+            GlobalStates.superReleaseMightTrigger = false;
+            overviewScope.toggleTranslator();
+        }
+        function typingTestToggle() {
+            GlobalStates.superReleaseMightTrigger = false;
+            overviewScope.toggleTypingTest();
+        }
+        function aiToggle() {
+            GlobalStates.superReleaseMightTrigger = false;
+            overviewScope.toggleAi();
+        }
+        function searchOnlyToggle() {
+            GlobalStates.superReleaseMightTrigger = false;
+            GlobalStates.toggleSearchOnly();
         }
     }
 
-    CompositorGlobalShortcut {
+    GlobalShortcut {
         name: "searchToggle"
         description: "Toggles search on press"
 
         onPressed: {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            GlobalStates.toggleOverview();
         }
     }
-    CompositorGlobalShortcut {
+    GlobalShortcut {
         name: "overviewWorkspacesClose"
         description: "Closes overview on press"
 
         onPressed: {
-            GlobalStates.overviewOpen = false;
+            GlobalStates.closeOverview();
         }
     }
-    CompositorGlobalShortcut {
+    GlobalShortcut {
         name: "overviewWorkspacesToggle"
         description: "Toggles overview on press"
 
         onPressed: {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            GlobalStates.toggleOverview();
         }
     }
-    CompositorGlobalShortcut {
+    GlobalShortcut {
+        name: "searchOnlyToggle"
+        description: "Toggles search only mode on press"
+
+        onPressed: {
+            GlobalStates.toggleSearchOnly();
+        }
+    }
+    GlobalShortcut {
         name: "searchToggleRelease"
         description: "Toggles search on release"
+
+        // Debounce: prevents double-fire from the global shortcuts protocol.
+        // When SUPER_L is bound as both modifier (SUPER) and trigger key (SUPER_L),
+        // the compositor sends `released` twice: once for the key release and once
+        // for the modifier state change. The 50ms window catches both without
+        // affecting normal press-release cycles.
+        property int _lastToggleTime: 0
 
         onPressed: {
             GlobalStates.superReleaseMightTrigger = true;
         }
 
         onReleased: {
+            const now = Date.now();
+            if (now - _lastToggleTime < 50)
+                return;
+            _lastToggleTime = now;
+
             if (!GlobalStates.superReleaseMightTrigger) {
                 GlobalStates.superReleaseMightTrigger = true;
                 return;
             }
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            // Inside a panel, Super is a step back to the plain search rather
+            // than a step out of the launcher entirely. Leaving the panel clears
+            // the flag synchronously, so a flag that survives the request was
+            // stale and the press still belongs to the Overview.
+            if (GlobalStates.overviewOpen && GlobalStates.searchPanelActive) {
+                overviewScope.exitActivePanelRequested();
+                if (!GlobalStates.searchPanelActive)
+                    return;
+            }
+            GlobalStates.toggleOverview();
         }
     }
-    CompositorGlobalShortcut {
+    GlobalShortcut {
         name: "searchToggleReleaseInterrupt"
         description: "Interrupts possibility of search being toggled on release. " + "This is necessary because GlobalShortcut.onReleased in quickshell triggers whether or not you press something else while holding the key. " + "To make sure this works consistently, use binditn = MODKEYS, catchall in an automatically triggered submap that includes everything."
 
@@ -244,30 +977,63 @@ Scope {
             GlobalStates.superReleaseMightTrigger = false;
         }
     }
-    CompositorGlobalShortcut {
+    GlobalShortcut {
         name: "overviewClipboardToggle"
         description: "Toggle clipboard query on overview widget"
 
         onPressed: {
+            GlobalStates.superReleaseMightTrigger = false;
             overviewScope.toggleClipboard();
         }
     }
 
-    CompositorGlobalShortcut {
+    GlobalShortcut {
         name: "overviewEmojiToggle"
         description: "Toggle emoji query on overview widget"
 
         onPressed: {
+            GlobalStates.superReleaseMightTrigger = false;
             overviewScope.toggleEmojis();
         }
     }
 
-    CompositorGlobalShortcut {
-        name: "overviewSymbolsToggle"
-        description: "Toggle material symbols search on overview widget"
+    GlobalShortcut {
+        name: "overviewMaterialSymbolsToggle"
+        description: "Toggle Material Symbols search on overview widget"
 
         onPressed: {
-            overviewScope.toggleSymbols();
+            GlobalStates.superReleaseMightTrigger = false;
+            overviewScope.toggleMaterialSymbols();
+        }
+    }
+
+    GlobalShortcut {
+        name: "overviewTranslatorToggle"
+        description: "Toggle Translator search on overview widget"
+
+        onPressed: {
+            GlobalStates.superReleaseMightTrigger = false;
+            overviewScope.toggleTranslator();
+        }
+    }
+
+    GlobalShortcut {
+        name: "overviewCommandsOpen"
+        description: "Open Search directly in the Commands panel"
+
+        onPressed: {
+            GlobalStates.superReleaseMightTrigger = false;
+            GlobalStates.openSearchPanel("commands");
+        }
+    }
+
+    GlobalShortcut {
+        name: "overviewAiToggle"
+        description: "Toggle AI chat on overview widget"
+
+        onPressed: {
+            GlobalStates.superReleaseMightTrigger = false;
+            overviewScope.toggleAi();
         }
     }
 }

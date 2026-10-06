@@ -30,8 +30,11 @@ RowLayout {
     Layout.rightMargin: 8
 
     RowLayout {
+        id: labelRow
         spacing: 10
         visible: root.text !== ""
+        Layout.minimumWidth: implicitWidth
+
         OptionalMaterialSymbol {
             icon: root.icon
             opacity: root.enabled ? 1 : 0.4

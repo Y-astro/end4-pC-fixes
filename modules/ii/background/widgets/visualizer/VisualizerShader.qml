@@ -1,4 +1,5 @@
 import QtQuick
+import qs.modules.common
 
 /*
  * One of the GPU visualizer styles (shaders/<style>.frag.qsb), fed by a VisualizerEngine.
@@ -18,7 +19,9 @@ ShaderEffect {
 
     readonly property real time: engine.time
     readonly property real bass: engine.bass
-    readonly property real fade: engine.fade
+    property real minFade: 0
+    readonly property real effectiveFade: (!Config.options.background.widgetsLocked && style === "wuwa") ? Math.max(engine.fade, 0.65) : Math.max(engine.fade, minFade)
+    readonly property real fade: effectiveFade
     readonly property real bandCount: engine.bandCount
     readonly property vector2d resolution: Qt.vector2d(width, height)
 

@@ -1,0 +1,127 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import Quickshell
+import Quickshell.Io
+import qs.services
+import qs.modules.common
+import qs.modules.common.functions
+import qs.modules.common.widgets
+import qs.modules.settings.configs.widgets
+
+Item {
+    id: privacyRoot
+    anchors.fill: parent
+
+    property alias contentY: root.contentY
+    property alias activeSubPage: subPageOverlay.activeSubPage
+
+    ContentPage {
+        id: root
+        anchors.fill: parent
+        forceWidth: false
+        opacity: subPageOverlay.slideProgress
+
+        ContentSection {
+            icon: "style"
+            title: Translation.tr("Policies Button Style")
+
+            ContentSubsection {
+                title: Translation.tr("Visual style")
+                icon: "palette"
+
+                ConfigSelectionArray {
+                    currentValue: Config.options.bar.styles.policies
+                    onSelected: newValue => {
+                        Config.options.bar.styles.policies = String(newValue);
+                    }
+                    options: [
+                        { displayName: Translation.tr("Default"),    icon: "style",     value: "default" },
+                        { displayName: Translation.tr("Expressive"), icon: "fluid_med", value: "expressive" },
+                        { displayName: Translation.tr("Outline"),    icon: "circle",    value: "outline" }
+                    ]
+                }
+            }
+
+            ExpressiveColorModeSubsection {
+                visible: Config.options.bar.styles.policies === "expressive"
+                currentValue: Config.options.bar.policies.colorMode
+                onSelected: newValue => Config.options.bar.policies.colorMode = String(newValue)
+            }
+        }
+
+        ContentSection {
+            icon: "policy"
+            title: Translation.tr("Work Safety & Policies")
+
+            ContentSubsectionLabel { text: Translation.tr("Hiding Suspects") }
+
+            ConfigSwitch {
+                buttonIcon: "assignment"
+                text: Translation.tr("Hide clipboard images")
+                checked: Config.options.workSafety.enable.clipboard
+                onCheckedChanged: {
+                    Config.options.workSafety.enable.clipboard = checked;
+                }
+            }
+
+            ConfigSwitch {
+                buttonIcon: "wallpaper"
+                text: Translation.tr("Hide suspect/anime wallpapers")
+                checked: Config.options.workSafety.enable.wallpaper
+                onCheckedChanged: {
+                    Config.options.workSafety.enable.wallpaper = checked;
+                }
+            }
+        }
+
+        ContentSection {
+            icon: "vpn_lock"
+            title: Translation.tr("Private connections")
+
+            PrivacyConnectionCards {
+                Layout.fillWidth: true
+                onConfigureVpn: privacyRoot.activeSubPage = Qt.resolvedUrl("widgets/VPNConfig.qml")
+                onConfigureTailscale: privacyRoot.activeSubPage = Qt.resolvedUrl("widgets/TailscaleConfig.qml")
+            }
+
+            // The shell's own downloads (favicons, images) identify with this.
+            MaterialTextArea {
+                Layout.fillWidth: true
+                Layout.topMargin: 4
+                placeholderText: Translation.tr("User agent for the shell's downloads")
+                text: Config.options.networking.userAgent
+                wrapMode: TextEdit.Wrap
+                onTextChanged: {
+                    Config.options.networking.userAgent = text;
+                }
+            }
+        }
+
+        NoticeBox {
+            Layout.fillWidth: true
+            text: Translation.tr("The Weeb (NSFW) sidebar tab can be toggled from the Sidebars page.")
+        }
+
+        ContentSection {
+            icon: "link"
+            title: Translation.tr("Related settings")
+
+            Flow {
+                Layout.fillWidth: true
+                spacing: 8
+
+                RelatedChip {
+                    pageId: "clipboard"
+                    label: Translation.tr("Clipboard history")
+                }
+            }
+        }
+    }
+
+    ConfigSubPageHost {
+        id: subPageOverlay
+        anchors.fill: parent
+        z: 10
+    }
+}

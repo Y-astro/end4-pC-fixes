@@ -99,6 +99,12 @@ Scope {
                 NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
             }
 
+            MouseArea {
+                anchors.fill: parent
+                z: -1
+            }
+
+
             Keys.onTabPressed: (event) => {
             const count = settingsContent.pages.length;
             settingsContent.currentPage = (settingsContent.currentPage + 1) % count;
@@ -164,6 +170,10 @@ Scope {
         function toggle(): void { GlobalStates.settingsOpen = !GlobalStates.settingsOpen; }
         function open(): void   { GlobalStates.settingsOpen = true; }
         function close(): void  { GlobalStates.settingsOpen = false; }
+        function openPage(page: string): void {
+            GlobalStates.settingsPage = page;
+            GlobalStates.settingsOpen = true;
+        }
     }
 
     CompositorGlobalShortcut {

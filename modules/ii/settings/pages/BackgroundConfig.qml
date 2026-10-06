@@ -985,7 +985,7 @@ ContentPage {
             title: Translation.tr("Visualizer 1")
 
             readonly property var entry: Config.options.background.widgets.visualizer
-            readonly property bool bandStyle: ["bars", "mirror", "aurora", "dots"].includes(entry.style)
+            readonly property bool bandStyle: ["bars", "mirror", "aurora", "dots", "wuwa"].includes(entry.style)
 
             GroupedList {
                 ConfigSwitch {
@@ -1032,6 +1032,11 @@ ContentPage {
                             displayName: Translation.tr("Dots"),
                             icon: "grid_on",
                             value: "dots"
+                        },
+                        {
+                            displayName: Translation.tr("Tacet Mark"),
+                            icon: "graphic_eq",
+                            value: "wuwa"
                         }
                     ]
                 }
@@ -1039,9 +1044,11 @@ ContentPage {
 
             NoticeBox {
                 Layout.fillWidth: true
-                visible: settingsVisualizer.entry.style === "ring"
+                visible: settingsVisualizer.entry.style === "ring" || settingsVisualizer.entry.style === "wuwa"
                 materialIcon: "touch_app"
-                text: Translation.tr("Drag the ring on your desktop to move it, drag its corner to resize it")
+                text: settingsVisualizer.entry.style === "ring"
+                    ? Translation.tr("Drag the ring on your desktop to move it, drag its corner to resize it")
+                    : Translation.tr("Drag the Tacet Mark on your desktop to move it, drag its edge to resize it")
             }
 
             ConfigSelectionArray {
@@ -1092,6 +1099,19 @@ ContentPage {
                     }
                 }
                 ConfigSlider {
+                    visible: settingsVisualizer.entry.style === "wuwa"
+                    text: Translation.tr("Width")
+                    buttonIcon: "aspect_ratio"
+                    usePercentTooltip: false
+                    value: settingsVisualizer.entry.customWidth ?? 860
+                    from: 300
+                    to: 1920
+                    stopIndicatorValues: [860]
+                    onValueChanged: {
+                        settingsVisualizer.entry.customWidth = Math.round(value);
+                    }
+                }
+                ConfigSlider {
                     visible: settingsVisualizer.entry.style === "ring"
                     text: Translation.tr("Size")
                     buttonIcon: "aspect_ratio"
@@ -1114,7 +1134,7 @@ ContentPage {
             title: Translation.tr("Visualizer 2")
 
             readonly property var entry: Config.options.background.widgets.visualizer2
-            readonly property bool bandStyle: ["bars", "mirror", "aurora", "dots"].includes(entry.style)
+            readonly property bool bandStyle: ["bars", "mirror", "aurora", "dots", "wuwa"].includes(entry.style)
 
             GroupedList {
                 ConfigSwitch {
@@ -1161,6 +1181,11 @@ ContentPage {
                             displayName: Translation.tr("Dots"),
                             icon: "grid_on",
                             value: "dots"
+                        },
+                        {
+                            displayName: Translation.tr("Tacet Mark"),
+                            icon: "graphic_eq",
+                            value: "wuwa"
                         }
                     ]
                 }
@@ -1168,9 +1193,11 @@ ContentPage {
 
             NoticeBox {
                 Layout.fillWidth: true
-                visible: settingsVisualizer2.entry.style === "ring"
+                visible: settingsVisualizer2.entry.style === "ring" || settingsVisualizer2.entry.style === "wuwa"
                 materialIcon: "touch_app"
-                text: Translation.tr("Drag the ring on your desktop to move it, drag its corner to resize it")
+                text: settingsVisualizer2.entry.style === "ring"
+                    ? Translation.tr("Drag the ring on your desktop to move it, drag its corner to resize it")
+                    : Translation.tr("Drag the Tacet Mark on your desktop to move it, drag its edge to resize it")
             }
 
             ConfigSelectionArray {
@@ -1218,6 +1245,19 @@ ContentPage {
                     stopIndicatorValues: [260]
                     onValueChanged: {
                         settingsVisualizer2.entry.height = Math.round(value);
+                    }
+                }
+                ConfigSlider {
+                    visible: settingsVisualizer2.entry.style === "wuwa"
+                    text: Translation.tr("Width")
+                    buttonIcon: "aspect_ratio"
+                    usePercentTooltip: false
+                    value: settingsVisualizer2.entry.customWidth ?? 860
+                    from: 300
+                    to: 1920
+                    stopIndicatorValues: [860]
+                    onValueChanged: {
+                        settingsVisualizer2.entry.customWidth = Math.round(value);
                     }
                 }
                 ConfigSlider {

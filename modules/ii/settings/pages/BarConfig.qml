@@ -16,7 +16,8 @@ ContentPage {
         function findTarget(rootItem) {
             for (let i = 0; i < rootItem.children.length; i++) {
                 let child = rootItem.children[i]
-                if (child.title && child.title.toLowerCase().includes(t)) {
+                if ((child.title && child.title.toLowerCase().includes(t)) ||
+                    (child.text && typeof child.text === "string" && child.text.toLowerCase().includes(t))) {
                     return child
                 }
             }
@@ -263,7 +264,40 @@ ContentPage {
                         Config.options.bar.groupColor = newValue
                     }
                 }
+                ConfigSwitch {
+                    buttonIcon: "waves"
+                    text: Translation.tr("Island filler")
+                    checked: Config.options?.bar?.islandFiller?.enable ?? true
+                    onCheckedChanged: {
+                        if (!Config.options.bar.islandFiller) {
+                            Config.options.bar.islandFiller = { enable: checked, style: "waves", opacity: 0.85 };
+                        } else {
+                            Config.options.bar.islandFiller.enable = checked;
+                        }
+                    }
+                }
+                ConfigSelectionArray {
+                    enabled: Config.options?.bar?.islandFiller?.enable ?? true
+                    text: Translation.tr("Style")
+                    icon: "water"
+                    currentValue: Config.options?.bar?.islandFiller?.style ?? "waves"
+                    onSelected: newValue => {
+                        if (!Config.options.bar.islandFiller) {
+                            Config.options.bar.islandFiller = { enable: true, style: newValue, opacity: 0.85 };
+                        } else {
+                            Config.options.bar.islandFiller.style = newValue;
+                        }
+                    }
+                    options: [
+                        { displayName: Translation.tr("Waves"),   icon: "waves",         value: "waves" },
+                        { displayName: Translation.tr("Stream"),  icon: "grain",         value: "stream" },
+                        { displayName: Translation.tr("Bolt"),    icon: "bolt",          value: "bolt" },
+                        { displayName: Translation.tr("Surge"),   icon: "electric_bolt", value: "surge" },
+                        { displayName: Translation.tr("Bridge"),  icon: "view_day",      value: "bridge" }
+                    ]
+                }
                 ConfigRow{
+
                     uniform: true
                     ConfigSwitch {
                         buttonIcon: "variable_insert"

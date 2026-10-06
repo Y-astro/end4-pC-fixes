@@ -50,6 +50,61 @@ ShellRoot {
         Updates.load()
         LyricsService.restartLyrics()
     }
+
+    Loader {
+        id: settingsLoader
+        readonly property int unloadDelay: Config.options?.appearance?.settingsUnloadDelay ?? 0
+        readonly property bool keepAliveWanted: unloadDelay !== 0
+        property bool keptAlive: false
+
+        active: GlobalStates.settingsOpen || GlobalStates.settingsSuspendedForScreenshot || keptAlive
+        asynchronous: false
+        source: "SettingsWindow.qml"
+        onActiveChanged: {
+            if (!active && settingsGarbageCollect)
+                settingsGarbageCollect.restart();
+        }
+        onUnloadDelayChanged: {
+            settingsUnloadTimer.stop();
+            if (!keepAliveWanted) {
+                keptAlive = false;
+            } else if (GlobalStates.settingsOpen) {
+                keptAlive = true;
+            } else if (keptAlive && unloadDelay > 0) {
+                settingsUnloadTimer.restart();
+            }
+        }
+    }
+
+    Timer {
+        id: settingsUnloadTimer
+        interval: Math.max(1, settingsLoader.unloadDelay) * 1000
+        onTriggered: {
+            if (!GlobalStates.settingsOpen)
+                settingsLoader.keptAlive = false;
+        }
+    }
+
+    Connections {
+        target: GlobalStates
+        function onSettingsOpenChanged() {
+            if (GlobalStates.settingsOpen) {
+                settingsUnloadTimer.stop();
+                settingsLoader.keptAlive = settingsLoader.keepAliveWanted;
+            } else if (settingsLoader.keptAlive && settingsLoader.unloadDelay > 0) {
+                settingsUnloadTimer.restart();
+            }
+        }
+    }
+
+    Timer {
+        id: settingsGarbageCollect
+        interval: 0
+        onTriggered: {
+            if (!settingsLoader.active)
+                gc();
+        }
+    }
     
     PanelFamilyLoader {
         identifier: "ii"

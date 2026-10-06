@@ -126,6 +126,50 @@ Singleton {
     }
 
     /**
+     * Determines a contrasting text color (black or white) based on the background color's luminance.
+     */
+    function getContrastingTextColor(bgColor) {
+        let color = Qt.color(bgColor);
+        let r = color.r <= 0.03928 ? color.r / 12.92 : Math.pow((color.r + 0.055) / 1.055, 2.4);
+        let g = color.g <= 0.03928 ? color.g / 12.92 : Math.pow((color.g + 0.055) / 1.055, 2.4);
+        let b = color.b <= 0.03928 ? color.b / 12.92 : Math.pow((color.b + 0.055) / 1.055, 2.4);
+        let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        return luminance < 0.5 ? "#FFFFFF" : "#000000";
+    }
+
+    function relativeLuminance(color) {
+        const c = Qt.color(color);
+        const channel = v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        return 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
+    }
+
+    function contrastRatio(foreground, background) {
+        const a = relativeLuminance(foreground);
+        const b = relativeLuminance(background);
+        const lighter = Math.max(a, b);
+        const darker = Math.min(a, b);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    function mostReadable(background, candidates, minimumRatio = 4.5) {
+        let best = null;
+        let bestRatio = -1;
+        for (const candidate of (candidates ?? [])) {
+            const ratio = contrastRatio(candidate, background);
+            if (ratio >= minimumRatio)
+                return candidate;
+            if (ratio > bestRatio) {
+                bestRatio = ratio;
+                best = candidate;
+            }
+        }
+        const fallback = getContrastingTextColor(background);
+        if (best === null)
+            return fallback;
+        return contrastRatio(fallback, background) > bestRatio ? fallback : best;
+    }
+
+    /**
      * Returns true if the color is considered "dark" (hslLightness < 0.5).
      *
      * @param {string} color - The color to check (any Qt.color-compatible string).

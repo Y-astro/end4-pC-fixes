@@ -12,6 +12,7 @@ Rectangle {
 
     property color colBg: Appearance.colors.colPrimaryContainer
     property color colShape: Appearance.colors.colOnPrimaryContainer
+    property alias shapeColor: root.colShape
 
     // Size, color
     property double implicitSize: 48

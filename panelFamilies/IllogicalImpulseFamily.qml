@@ -48,7 +48,8 @@ Scope {
     PanelLoader { component: SidebarRight {} }
     PanelLoader { extraCondition: Config.options.bar.vertical; component: VerticalBar {} }
     PanelLoader { component: WallpaperSelector {} }
-    PanelLoader { component: Settings {} }
+    // Legacy 2-column layer-shell settings disabled in favor of SettingsWindow.qml in shell.qml
+    // PanelLoader { component: Settings {} }
     PanelLoader { component: DesktopMenu {} }
     PanelLoader { component: DropShelfPanel {} }
     PanelLoader { component: NiriBackdrop {} }

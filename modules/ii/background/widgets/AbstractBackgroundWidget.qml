@@ -18,6 +18,11 @@ AbstractWidget {
 
     property Item wallpaperItem: null
 
+    property real resizeMaxScale: 2
+    property string lockBehavior: "keep"
+    property real padding: 0
+    property real dateSpacing: 0
+    property bool isPreview: false
     property bool visibleWhenLocked: Config.options.lock.showWidgets
     property var configEntry: Config.options.background.widgets[configEntryName]
     property string placementStrategy: configEntry.placementStrategy

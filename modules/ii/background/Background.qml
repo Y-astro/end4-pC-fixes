@@ -291,7 +291,7 @@ Variants {
                     z: 1
                     active: (Config.options.background.widgets.visualizer?.enable ?? false)
                         && (Config.options.background.screenList.length === 0 || Config.options.background.screenList.includes(bgRoot.screen.name))
-                        && (Config.options.background.widgets.visualizer?.style ?? "bars") !== "ring"
+                        && !["ring", "wuwa"].includes(Config.options.background.widgets.visualizer?.style ?? "bars")
                     visible: active && (!GlobalStates.screenLocked || Config.options.lock.showWidgets)
                     anchors.fill: parent
                     sourceComponent: VisualizerWidget {
@@ -312,7 +312,7 @@ Variants {
                     z: 1
                     active: (Config.options.background.widgets.visualizer2?.enable ?? false)
                         && (Config.options.background.screenList.length === 0 || Config.options.background.screenList.includes(bgRoot.screen.name))
-                        && (Config.options.background.widgets.visualizer2?.style ?? "ring") !== "ring"
+                        && !["ring", "wuwa"].includes(Config.options.background.widgets.visualizer2?.style ?? "ring")
                     visible: active && (!GlobalStates.screenLocked || Config.options.lock.showWidgets)
                     anchors.fill: parent
                     sourceComponent: VisualizerWidget {
@@ -439,6 +439,23 @@ Variants {
                     screen: bgRoot.screen
                     wallpaperItem: wallpaperSurface
                     wallpaperSafetyTriggered: bgRoot.wallpaperSafetyTriggered
+                }
+
+                Loader {
+                    id: mediaModeLoader
+                    anchors.fill: parent
+                    z: 100
+                    active: GlobalStates.isMediaModeActiveForScreen(bgRoot.screen ? bgRoot.screen.name : "")
+                    sourceComponent: MediaMode {
+                        anchors.fill: parent
+                        onCloseRequested: function(allMonitors) {
+                            if (allMonitors) {
+                                GlobalStates.mediaModeCloseAllTrigger++;
+                            } else {
+                                GlobalStates.setMediaModeActiveForScreen(bgRoot.screen ? bgRoot.screen.name : "", false);
+                            }
+                        }
+                    }
                 }
             }
 

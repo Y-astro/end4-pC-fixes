@@ -170,6 +170,7 @@ Singleton {
             property string destination: "/sdcard/Download"
             property var filePaths: []
             property var onComplete: null
+            property bool completedHandled: false
 
             command: ["python3", root.helperScript, "push", destination, ...filePaths]
             stdout: SplitParser {
@@ -184,13 +185,26 @@ Singleton {
                             root.transferTotal = ev.total
                             root.currentFileName = ev.file
                         } else if (ev.event === "complete") {
+                            proc.completedHandled = true
                             root.isTransferring = false
-                            root.transferCompleted(ev.total, ev.destination)
-                            if (proc.onComplete) proc.onComplete(true, ev.destination)
+
+                            if (ev.failed > 0 && ev.success === 0) {
+                                const errMsg = (ev.failed_files && ev.failed_files.length > 0)
+                                               ? ev.failed_files[0].message
+                                               : "All file transfers failed"
+                                root.transferFailed(errMsg)
+                                if (proc.onComplete) proc.onComplete(false, ev.destination, errMsg)
+                            } else {
+                                root.transferCompleted(ev.success || ev.total, ev.destination)
+                                if (proc.onComplete) proc.onComplete(true, ev.destination, "")
+                            }
                         } else if (ev.event === "error") {
+                            proc.completedHandled = true
                             root.isTransferring = false
                             root.transferFailed(ev.message || "Transfer error")
-                            if (proc.onComplete) proc.onComplete(false, proc.destination)
+                            if (proc.onComplete) proc.onComplete(false, proc.destination, ev.message || "Transfer error")
+                        } else if (ev.event === "file_error") {
+                            root.lastError = ev.message || "File error"
                         }
                     } catch (e) {
                         // Ignore non-json lines
@@ -199,6 +213,11 @@ Singleton {
             }
             onExited: (code, status) => {
                 root.isTransferring = false
+                if (!proc.completedHandled) {
+                    proc.completedHandled = true
+                    root.transferFailed("Transfer process exited prematurely")
+                    if (proc.onComplete) proc.onComplete(false, proc.destination, "Transfer process exited prematurely")
+                }
                 proc.destroy()
             }
         }
@@ -212,6 +231,6 @@ Singleton {
         }
         root.isTransferring = false
         root.transferCompleted(sent, "/sdcard/Download (KDE Connect)")
-        if (onComplete) onComplete(true, "/sdcard/Download")
+        if (onComplete) onComplete(true, "/sdcard/Download (KDE Connect)", "kdeconnect")
     }
 }

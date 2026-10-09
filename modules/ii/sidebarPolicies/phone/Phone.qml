@@ -45,8 +45,6 @@ Item {
     property var stagedFiles: []
     readonly property bool hasStagedFiles: stagedFiles.length > 0
     readonly property bool showOverlay: phoneDropArea.containsDrag || root.hasStagedFiles || PhoneFileBridgeService.isTransferring
-    property bool isSending: PhoneFileBridgeService.isTransferring
-    property int sendingIndex: PhoneFileBridgeService.transferIndex
 
 
     readonly property bool emptyStateVisible: !KdeConnectService.adbReachable && (
@@ -115,31 +113,6 @@ Item {
 
     function closeSubPage(): void {
         root.activeSubPage = ""
-    }
-
-    function sendNextFile(): void {
-        if (root.sendingIndex >= root.stagedFiles.length) {
-            const count = root.stagedFiles.length
-            root.isSending = false
-            root.sendingIndex = 0
-            root.stagedFiles = []
-            toastLayer.show(
-                count === 1 ? Translation.tr("File sent successfully")
-                            : Translation.tr("%1 files sent successfully").arg(String(count)),
-                true
-            )
-            return
-        }
-        KdeConnectService.shareUrl(KdeConnectService.activeDeviceId, root.stagedFiles[root.sendingIndex])
-        root.sendingIndex++
-        sendTimer.restart()
-    }
-
-    Timer {
-        id: sendTimer
-        interval: 300
-        repeat: false
-        onTriggered: root.sendNextFile()
     }
 
     Rectangle {
@@ -1247,6 +1220,10 @@ Item {
                 onCompleted: {
                     root.stagedFiles = []
                     toastLayer.show(Translation.tr("Transfer complete! Scanned to media library"), true)
+                }
+                onFailed: err => {
+                    root.stagedFiles = []
+                    toastLayer.show(Translation.tr("Transfer failed: %1").arg(err), false)
                 }
             }
         }

@@ -10,6 +10,7 @@ import os
 import json
 import subprocess
 import shlex
+import urllib.parse
 
 def get_adb_device():
     """Returns active adb device serial if reachable."""
@@ -78,16 +79,22 @@ def cmd_push(destination, file_paths):
                    capture_output=True, timeout=5)
 
     total = len(file_paths)
-    for idx, local_file in enumerate(file_paths, start=1):
-        # Strip file:// prefix if present
+    success_count = 0
+    failed_files = []
+
+    for idx, raw_path in enumerate(file_paths, start=1):
+        local_file = raw_path
         if local_file.startswith("file://"):
             local_file = local_file[7:]
+        local_file = urllib.parse.unquote(local_file).rstrip('/')
         
         if not os.path.exists(local_file):
+            err_msg = "File does not exist locally"
+            failed_files.append({"file": local_file, "message": err_msg})
             print(json.dumps({
                 "event": "file_error",
                 "file": local_file,
-                "message": "File does not exist locally"
+                "message": err_msg
             }), flush=True)
             continue
 
@@ -99,6 +106,7 @@ def cmd_push(destination, file_paths):
         try:
             push_res = subprocess.run(push_cmd, capture_output=True, text=True, timeout=120)
             if push_res.returncode == 0:
+                success_count += 1
                 # Trigger media scanner for media indexing on Android
                 subprocess.run(
                     ["adb", "-s", dev, "shell",
@@ -114,21 +122,28 @@ def cmd_push(destination, file_paths):
                     "destination": dest_file_path
                 }), flush=True)
             else:
+                err_msg = push_res.stderr.strip() or "adb push failed"
+                failed_files.append({"file": file_name, "message": err_msg})
                 print(json.dumps({
                     "event": "file_error",
                     "file": file_name,
-                    "message": push_res.stderr.strip()
+                    "message": err_msg
                 }), flush=True)
         except Exception as e:
+            err_msg = str(e)
+            failed_files.append({"file": file_name, "message": err_msg})
             print(json.dumps({
                 "event": "file_error",
                 "file": file_name,
-                "message": str(e)
+                "message": err_msg
             }), flush=True)
 
     print(json.dumps({
         "event": "complete",
         "total": total,
+        "success": success_count,
+        "failed": len(failed_files),
+        "failed_files": failed_files,
         "destination": destination
     }), flush=True)
 

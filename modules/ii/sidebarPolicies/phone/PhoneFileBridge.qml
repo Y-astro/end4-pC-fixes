@@ -22,6 +22,15 @@ Item {
 
     signal cancelRequested()
     signal completed()
+    signal failed(string error)
+
+    Connections {
+        target: PhoneFileBridgeService
+        function onTransferFailed(error) {
+            root.failed(error)
+            root.reset()
+        }
+    }
 
     // Internal state
     // "zones", "explorer", "new_folder", "transferring"
@@ -99,12 +108,21 @@ Item {
 
     function executePush(destination) {
         root.currentView = "transferring"
-        PhoneFileBridgeService.pushFiles(root.stagedFiles, destination, (success, dest) => {
+        PhoneFileBridgeService.pushFiles(root.stagedFiles, destination, (success, dest, error) => {
             if (success) {
                 completionTimer.restart()
             } else {
-                root.currentView = "zones"
+                root.failed(error || "Transfer failed")
+                root.reset()
             }
+        })
+    }
+
+    function createFolderAndPush() {
+        const folderName = folderNameField.text.trim() || "New_Folder"
+        const finalDest = root.targetBaseFolder.replace(/\/+$/, "") + "/" + folderName
+        PhoneFileBridgeService.createDirectory(finalDest, ok => {
+            root.executePush(finalDest)
         })
     }
 
@@ -447,6 +465,7 @@ Item {
                     anchors.fill: parent
                     anchors.margins: 6
                     spacing: 4
+                    ScrollBar.vertical: StyledScrollBar {}
                     model: {
                         let list = []
                         if (root.currentExplorerPath !== "/sdcard") {
@@ -621,6 +640,13 @@ Item {
             width: parent.width - 32
             spacing: 14
             visible: root.currentView === "new_folder"
+            onVisibleChanged: {
+                if (visible) {
+                    folderNameField.text = "New_Folder"
+                    folderNameField.forceActiveFocus()
+                    folderNameField.selectAll()
+                }
+            }
 
             Rectangle {
                 Layout.alignment: Qt.AlignHCenter
@@ -660,6 +686,7 @@ Item {
                 placeholderText: Translation.tr("Folder name...")
                 text: "New_Folder"
                 color: Appearance.colors.colOnLayer2
+                onAccepted: root.createFolderAndPush()
                 background: Rectangle {
                     radius: Appearance.rounding.normal
                     color: Appearance.colors.colLayer0
@@ -709,15 +736,10 @@ Item {
                     }
 
                     MouseArea {
+                        id: createCopyMouse
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            const folderName = folderNameField.text.trim() || "New_Folder"
-                            const finalDest = root.targetBaseFolder.replace(/\/+$/, "") + "/" + folderName
-                            PhoneFileBridgeService.createDirectory(finalDest, ok => {
-                                root.executePush(finalDest)
-                            })
-                        }
+                        onClicked: root.createFolderAndPush()
                     }
                 }
             }
@@ -872,13 +894,23 @@ Item {
             }
         }
 
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.NoButton
+            onEntered: zoneRoot.hoverEntered()
+            onExited: zoneRoot.hoverExited()
+        }
+
         // HOVER VIEW: 2 SUB-ZONE PILLS
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: 8
             spacing: 6
+            z: 2
             opacity: zoneRoot.isHovered ? 1.0 : 0.0
             visible: opacity > 0.0
+            enabled: zoneRoot.isHovered
 
             Behavior on opacity {
                 NumberAnimation { duration: 140 }
@@ -957,14 +989,6 @@ Item {
                     onClicked: zoneRoot.newFolder()
                 }
             }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
-            onEntered: zoneRoot.hoverEntered()
-            onExited: zoneRoot.hoverExited()
         }
     }
 }

@@ -233,6 +233,7 @@ Singleton {
 
     readonly property string _scriptPath: FileUtils.trimFileProtocol(Directories.scriptPath + "/kdeconnect/monitor.py")
     readonly property string _fetchNotifsScriptPath: FileUtils.trimFileProtocol(Directories.scriptPath + "/kdeconnect/fetch_notifications.py")
+    readonly property string _adbTunnelScriptPath: FileUtils.trimFileProtocol(Directories.scriptPath + "/phone/kdeconnect_adb_tunnel.py")
 
     IpcHandler {
         target: "kdeconnect"
@@ -280,6 +281,8 @@ Singleton {
         checkAdbProc.running = true
         checkPythonDbusProc.running = true
     }
+
+    function load(): void {}
 
     // Reflects Config.options.policies.phone and Config.options.phone.kdeconnectEnabled.
     // When false, the service stays dormant: no DBus monitor, no pgrep polling, no ADB probing.
@@ -447,9 +450,48 @@ Singleton {
         }
     }
 
+    Process {
+        id: tunnelCleanupProc
+        running: false
+        command: ["pkill", "-f", "phone/kdeconnect_adb_tunnel.py"]
+        onExited: (code, status) => {
+            adbTunnelProc.command = ProcUtils.pdeath(["python3", root._adbTunnelScriptPath])
+            adbTunnelProc.running = true
+        }
+    }
+
+    function startAdbTunnel() {
+        if (adbTunnelProc.running) return
+        tunnelCleanupProc.running = true
+    }
+
+    Process {
+        id: adbTunnelProc
+        running: false
+        onExited: (code, status) => {
+            if (root.available && root.adbPresent) {
+                tunnelRestartTimer.restart()
+            }
+        }
+    }
+
+    Timer {
+        id: tunnelRestartTimer
+        interval: 3000
+        repeat: false
+        onTriggered: {
+            if (root.available && root.adbPresent && !adbTunnelProc.running) {
+                adbTunnelProc.command = ProcUtils.pdeath(["python3", root._adbTunnelScriptPath])
+                adbTunnelProc.running = true
+            }
+        }
+    }
+
     function startMonitor() {
-        if (monitorProc.running) return
-        cleanupProc.running = true
+        if (!monitorProc.running) {
+            cleanupProc.running = true
+        }
+        root.startAdbTunnel()
     }
 
     Process {
@@ -1144,6 +1186,15 @@ Singleton {
                 // network target so a plugged-in phone always wins. The pinned
                 // port comes next: it outlives the TLS port it was found with.
                 "SERIAL=$(adb devices | awk '$2==\"device\" {print $1}' | grep -v ':' | head -n1); " +
+                "if [ -z \"$SERIAL\" ]; then " +
+                "  adb reconnect >/dev/null 2>&1 || true; " +
+                "  SERIAL=$(adb devices | awk '$2==\"device\" {print $1}' | grep -v ':' | head -n1); " +
+                "  if [ -z \"$SERIAL\" ] && lsusb | grep -qi -E 'google|samsung|oneplus|oppo|xiaomi|huawei|motorola|realme|vivo|lg|sony|asus|transsion|22d9:'; then " +
+                "    adb kill-server >/dev/null 2>&1; " +
+                "    adb start-server >/dev/null 2>&1; " +
+                "    SERIAL=$(adb devices | awk '$2==\"device\" {print $1}' | grep -v ':' | head -n1); " +
+                "  fi; " +
+                "fi; " +
                 "if [ -z \"$SERIAL\" ]; then SERIAL=\"$PINOK\"; fi; " +
                 "if [ -z \"$SERIAL\" ]; then SERIAL=$(adb devices | awk '$2==\"device\" {print $1}' | head -n1); fi; " +
                 "echo \"COUNT:$(adb devices | awk '$2==\"device\"' | wc -l)\"; " +
@@ -1199,7 +1250,12 @@ Singleton {
         adbProbeProc.running = true
     }
 
-    onAdbReachableChanged: if (root.adbReachable) root._probeAdbDeviceName()
+    onAdbReachableChanged: {
+        if (root.adbReachable) {
+            root._probeAdbDeviceName()
+            if (root.available) root.startAdbTunnel()
+        }
+    }
 
     // KDE Connect only ever hands out the marketing model, so the phone's
     // real name has to come from Android itself.
@@ -1576,11 +1632,12 @@ Singleton {
 
     /** Enforces 120Hz high refresh rate on the phone (disables ColorOS downclocking). */
     function adbEnsureHighRefreshRate() {
+        const target = root.resolvedAdbSerial ? ("-s " + root._shellQuote(root.resolvedAdbSerial) + " ") : ""
         Quickshell.execDetached(["bash", "-c",
-            "adb shell settings put secure oplus_customize_screen_refresh_rate 3 >/dev/null 2>&1; " +
-            "adb shell settings put system min_refresh_rate 120.0 >/dev/null 2>&1; " +
-            "adb shell settings put system peak_refresh_rate 120.0 >/dev/null 2>&1; " +
-            "adb shell cmd display set-user-preferred-display-mode 1080 2392 120 0 >/dev/null 2>&1 || true"
+            "adb " + target + "shell settings put secure oplus_customize_screen_refresh_rate 3 >/dev/null 2>&1; " +
+            "adb " + target + "shell settings put system min_refresh_rate 120.0 >/dev/null 2>&1; " +
+            "adb " + target + "shell settings put system peak_refresh_rate 120.0 >/dev/null 2>&1; " +
+            "adb " + target + "shell cmd display set-user-preferred-display-mode 1080 2392 120 0 >/dev/null 2>&1 || true"
         ])
     }
 

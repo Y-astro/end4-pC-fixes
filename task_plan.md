@@ -51,3 +51,9 @@ Port requested features from `P3DROVFX/ii-p3drovfx` into `end4-pC`:
 - [x] Test live with `qs -c end4-pC` via IPC (`settings openPage`, `search setQuery`, `mediaMode toggle`).
 - [x] Confirm user's custom features (WuWa visualizer, IslandFiller, etc.) continue functioning flawlessly.
 - [x] Clean up temporary files and commit all work to git branch `integrate-vynx-features`.
+
+### [x] Phase 7: In-Sidebar Drag-to-Send Phone File Bridge
+- [x] Phase 7.1: Implement `services/PhoneFileBridgeService.qml` (ADB directory listing, mkdir, high-speed push, MediaScanner, KDE Connect fallback).
+- [x] Phase 7.2: Implement `modules/ii/sidebarPolicies/phone/PhoneFileBridge.qml` (4 main zones, hover sub-zones, Zone 5 internal storage traversal, new folder dialog, fluid animations, progress/completion feedback).
+- [x] Phase 7.3: Integrate `PhoneFileBridge.qml` into `modules/ii/sidebarPolicies/phone/Phone.qml` replacing static overlay.
+- [x] Phase 7.4: Verification & live testing on OnePlus Nord CE5, restart quickshell daemon, and commit.

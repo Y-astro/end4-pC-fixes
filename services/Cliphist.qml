@@ -9,20 +9,138 @@ import Quickshell.Io
 
 Singleton {
     id: root
-
     // property string cliphistBinary: FileUtils.trimFileProtocol(`${Directories.home}/.cargo/bin/stash`)
     property string cliphistBinary: "cliphist"
+    /**
+     * Image entries already decoded to a file, keyed by that file's path.
+     *
+     * Filled in place by CliphistImage and never reassigned, so nothing re-evaluates
+     * when it grows. It lives as long as the files do: the decode directory is emptied
+     * when the shell starts, which is also when this is.
+     */
+    readonly property var decodedImages: ({})
     property real pasteDelay: 0.05
-    property string pressPasteCommand: "ydotool key -d 1 29:1 47:1 47:0 29:0"
-    property bool sloppySearch: Config.options?.search.sloppy ?? false
+    property string pressPasteCommand: "wtype -M ctrl -k v -m ctrl"
+    property bool sloppySearch: Config.options?.search.clipboard.enableSloppySearch ?? Config.options?.search.sloppy ?? false
+    property bool levenshteinSearch: (Config.options?.search.levenshtein ?? false) || (Config.options?.search.algorithm === "levenshtein")
     property real scoreThreshold: 0.2
     property list<string> entries: []
-
-    readonly property var preparedEntries: entries.map(a => ({
+    property list<string> pendingDeletes: []
+    readonly property var preparedEntries: entries.slice(0, 150).map(a => ({
         name: Fuzzy.prepare(`${a.replace(/^\s*\S+\s+/, "")}`),
         entry: a
     }))
 
+    // "A lista foi relida" e "o usuario copiou algo" sao eventos diferentes.
+    // `clipboardUpdated` e o primeiro: ele dispara em toda releitura, inclusive nas
+    // que vem de delecao, wipe, retencao e do IPC `cliphistService update` que os tres
+    // watchers `wl-paste --watch` chamam sem que nada tenha sido copiado.
+    // `entryAdded` e o segundo, e e o unico que superficies de notificacao devem ouvir.
+    signal clipboardUpdated()
+    signal entryAdded(string entry)
+
+    // Identidade do topo da ultima releitura. Os IDs do cliphist sao monotonicos, entao
+    // um ID maior e a unica prova de que uma entrada nova foi gravada: delecoes, wipes e
+    // releituras nunca aumentam o ID. Mas reofertar a MESMA selecao (o que acontece ao
+    // desbloquear a sessao) tambem reinsere o texto com um ID novo, por isso o conteudo
+    // tambem precisa ter mudado.
+    property int idWatermark: -1
+    property string lastAnnounced: ""
+    property bool suppressNextAdd: false
+
+    // O proprio shell recopiando um item antigo gera uma entrada nova no cliphist.
+    // Chame isto antes de recopiar para que a ilha nao anuncie a propria acao do painel.
+    function markInternalCopy() {
+        root.suppressNextAdd = true;
+    }
+
+    function noteTopEntry() {
+        const top = root.entries[0] ?? "";
+        const id = Number(root.entryKey(top) || -1);
+        if (id < 0)
+            return;
+        const clean = StringUtils.cleanCliphistEntry(top);
+        const firstRead = root.idWatermark < 0;
+        const idGrew = id > root.idWatermark;
+        if (idGrew)
+            root.idWatermark = id;
+        // A primeira leitura apenas semeia a linha de base, em silencio. A marca d'agua
+        // vive no singleton, e nao no painel, para sobreviver a recriacao das superficies
+        // e ao ciclo de lock/unlock.
+        if (firstRead) {
+            root.lastAnnounced = clean;
+            return;
+        }
+        if (!idGrew || clean === root.lastAnnounced)
+            return;
+        root.lastAnnounced = clean;
+        if (root.suppressNextAdd) {
+            root.suppressNextAdd = false;
+            return;
+        }
+        root.entryAdded(top);
+    }
+
+    // Computed filtered lists for 3-column clipboard panel (capped to avoid memory fragmentation)
+    readonly property var textEntries: entries.slice(0, 200).filter(e => !entryIsImage(e) && !isPinned(e))
+    readonly property var imageEntries: entries.slice(0, 200).filter(e => entryIsImage(e) && !isPinned(e))
+
+    /**
+     * Classify clipboard entry content for smart rendering.
+     * Returns: "hex-color", "url", "email", "phone", "json", "markdown", "filepath", "multiline", "number", or ""
+     */
+    function classifyEntry(entry) {
+        if (!entry) return "";
+        // Strip cliphist ID prefix
+        const content = entry.replace(/^\s*\S+\s+/, "").trim();
+        if (content.length === 0) return "";
+
+        const detectors = Config.options?.search?.clipboard?.detectors;
+
+        // Hex color
+        if (detectors?.hexColor !== false && /^#([0-9A-Fa-f]{3,4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(content))
+            return "hex-color";
+
+        // URL
+        if (detectors?.url !== false && /^https?:\/\/\S+/.test(content))
+            return "url";
+
+        // Email
+        if (detectors?.email !== false && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(content))
+            return "email";
+
+        // Phone
+        if (detectors?.phone !== false && /^\+?[\d\s\-()]{7,}$/.test(content))
+            return "phone";
+
+        // JSON
+        if (detectors?.json !== false && (content.startsWith("{") || content.startsWith("["))) {
+            try {
+                const parsed = JSON.parse(content);
+                if (typeof parsed === "object") return "json";
+            } catch (e) {}
+        }
+
+        // File path
+        if (detectors?.filePath !== false && /^(\/|~\/)[^\s]+/.test(content))
+            return "filepath";
+
+        // Markdown
+        if (detectors?.markdown !== false && /^(#{1,6}\s|>\s|\*\*|__|- \[[ x]\]|- )/.test(content))
+            return "markdown";
+
+        // Number
+        if (detectors?.number !== false && /^-?[\d,. ]+$/.test(content) && content.replace(/[\s,._]/g, "").length > 0)
+            return "number";
+
+        // Multiline
+        if (detectors?.multiline !== false) {
+            const lineCount = (content.match(/\n/g) || []).length;
+            if (lineCount >= 2) return "multiline";
+        }
+
+        return "";
+    }
     function fuzzyQuery(search: string): var {
         if (search.trim() === "") {
             return entries;
@@ -33,11 +151,12 @@ Singleton {
                 score: Levendist.computeTextMatchScore(str.toLowerCase(), search.toLowerCase())
             })).filter(item => item.score > root.scoreThreshold)
                 .sort((a, b) => b.score - a.score)
-            return results.map(item => item.entry)
+            return results
+                .map(item => item.entry)
         }
 
         return Fuzzy.go(search, preparedEntries, {
-            all: true,
+            limit: 100,
             key: "name"
         }).map(r => {
             return r.obj.entry
@@ -48,27 +167,145 @@ Singleton {
         return !!(/^\d+\t\[\[.*binary data.*\d+x\d+.*\]\]$/.test(entry))
     }
 
+    function entryKey(entry) {
+        return String(entry ?? "").match(/^(\d+)\t/)?.[1] ?? "";
+    }
+
+    function synchronizeRetention() {
+        if (!Persistent.ready)
+            return;
+        const options = Config.options.search.clipboard.autoDelete;
+        if (!options.enable) {
+            if ((Persistent.states.clipboard.historySeen?.length ?? 0) > 0)
+                Persistent.states.clipboard.historySeen = [];
+            return;
+        }
+
+        const now = Date.now();
+        const cutoff = now - Math.max(1, Number(options.retentionDays) || 30) * 86400000;
+        const previous = Array.from(Persistent.states.clipboard.historySeen ?? []);
+        const seenById = ({});
+        for (const record of previous)
+            seenById[String(record?.id ?? "")] = Number(record?.seenAt ?? now);
+
+        const retainedRecords = [];
+        const expiredEntries = [];
+        for (const entry of root.entries) {
+            const id = root.entryKey(entry);
+            if (id.length === 0)
+                continue;
+            const seenAt = seenById[id] ?? now;
+            if (seenAt <= cutoff && !root.isPinned(entry))
+                expiredEntries.push(entry);
+            else
+                retainedRecords.push({ id: id, seenAt: seenAt });
+        }
+
+        if (JSON.stringify(previous) !== JSON.stringify(retainedRecords))
+            Persistent.states.clipboard.historySeen = retainedRecords;
+        for (const entry of expiredEntries)
+            root.enqueueDeletion(entry);
+    }
+
+    function enqueueDeletion(entry) {
+        const value = String(entry ?? "");
+        if (value.length === 0 || root.pendingDeletes.includes(value))
+            return;
+        root.pendingDeletes = root.pendingDeletes.concat([value]);
+        root.startNextDeletion();
+    }
+
+    function startNextDeletion() {
+        if (deleteProc.running || root.pendingDeletes.length === 0)
+            return;
+        deleteProc.entry = root.pendingDeletes[0];
+        root.pendingDeletes = root.pendingDeletes.slice(1);
+        deleteProc.running = true;
+    }
+
     function refresh() {
         readProc.buffer = []
         readProc.running = true
     }
 
     function copy(entry) {
-        if (root.cliphistBinary.includes("cliphist")) // Classic cliphist
-            Quickshell.execDetached(["bash", "-c", `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy`]);
-        else { // Stash
-            const entryNumber = entry.split("\t")[0];
-            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy`]);
+        if (!entry) return;
+
+        let actualEntry = entry;
+        const cleanPinned = StringUtils.cleanCliphistEntry(entry);
+        const isImg = entryIsImage(entry);
+
+        // Try to find a matching entry in current history to get a valid, fresh ID
+        let found = false;
+        if (root.entries.indexOf(entry) !== -1) {
+            found = true;
+        } else {
+            for (let i = 0; i < root.entries.length; i++) {
+                if (StringUtils.cleanCliphistEntry(root.entries[i]) === cleanPinned) {
+                    actualEntry = root.entries[i];
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (found) {
+            if (root.cliphistBinary.includes("cliphist")) {
+                Quickshell.execDetached(["bash", "-c", `printf '${StringUtils.shellSingleQuoteEscape(actualEntry)}' | ${root.cliphistBinary} decode | wl-copy`]);
+            } else {
+                const entryNumber = actualEntry.split("\t")[0];
+                Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy`]);
+            }
+        } else {
+            // Fallback for purged pinned items
+            if (!isImg) {
+                Quickshell.execDetached(["bash", "-c", `printf '%s' '${StringUtils.shellSingleQuoteEscape(cleanPinned)}' | wl-copy`]);
+            } else {
+                console.warn("[Cliphist] Cannot copy purged pinned image");
+            }
         }
     }
 
     function paste(entry) {
-        if (root.cliphistBinary.includes("cliphist")) // Classic cliphist
-            Quickshell.execDetached(["bash", "-c", `printf '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} decode | wl-copy && wl-paste`]);
-        else { // Stash
-            const entryNumber = entry.split("\t")[0];
-            Quickshell.execDetached(["bash", "-c", `${root.cliphistBinary} decode ${entryNumber} | wl-copy; ${root.pressPasteCommand}`]);
+        if (!entry) return;
+
+        let actualEntry = entry;
+        const cleanPinned = StringUtils.cleanCliphistEntry(entry);
+        const isImg = entryIsImage(entry);
+
+        let found = false;
+        if (root.entries.indexOf(entry) !== -1) {
+            found = true;
+        } else {
+            for (let i = 0; i < root.entries.length; i++) {
+                if (StringUtils.cleanCliphistEntry(root.entries[i]) === cleanPinned) {
+                    actualEntry = root.entries[i];
+                    found = true;
+                    break;
+                }
+            }
         }
+
+        let copyCmd = "";
+        if (found) {
+            if (root.cliphistBinary.includes("cliphist")) {
+                copyCmd = `printf '${StringUtils.shellSingleQuoteEscape(actualEntry)}' | ${root.cliphistBinary} decode | wl-copy`;
+            } else {
+                const entryNumber = actualEntry.split("\t")[0];
+                copyCmd = `${root.cliphistBinary} decode ${entryNumber} | wl-copy`;
+            }
+        } else {
+            if (!isImg) {
+                copyCmd = `printf '%s' '${StringUtils.shellSingleQuoteEscape(cleanPinned)}' | wl-copy`;
+            } else {
+                console.warn("[Cliphist] Cannot paste purged pinned image");
+                return;
+            }
+        }
+
+        // Simula o colar na janela ativa com atraso para garantir que a janela recuperou o foco
+        const pasteCmd = `${copyCmd} && sleep 0.35 && wtype -M ctrl -k v -m ctrl`;
+        Quickshell.execDetached(["bash", "-c", pasteCmd]);
     }
 
     function superpaste(count, isImage = false) {
@@ -86,32 +323,106 @@ Singleton {
         id: deleteProc
         property string entry: ""
         command: ["bash", "-c", `echo '${StringUtils.shellSingleQuoteEscape(deleteProc.entry)}' | ${root.cliphistBinary} delete`]
-        function deleteEntry(entry) {
-            deleteProc.entry = entry;
-            deleteProc.running = true;
-            deleteProc.entry = "";
-        }
         onExited: (exitCode, exitStatus) => {
-            root.refresh();
+            deleteProc.entry = "";
+            if (root.pendingDeletes.length > 0)
+                Qt.callLater(root.startNextDeletion);
+            else
+                root.refresh();
         }
     }
 
     function deleteEntry(entry) {
-        deleteProc.deleteEntry(entry);
+        if (!entry) return;
+
+        if (isPinned(entry)) {
+            unpin(entry);
+        }
+
+        let actualEntry = entry;
+        const cleanPinned = StringUtils.cleanCliphistEntry(entry);
+
+        // Find matching entry in root.entries to get the real ID to delete
+        let found = false;
+        if (root.entries.indexOf(entry) !== -1) {
+            found = true;
+        } else {
+            for (let i = 0; i < root.entries.length; i++) {
+                if (StringUtils.cleanCliphistEntry(root.entries[i]) === cleanPinned) {
+                    actualEntry = root.entries[i];
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        root.enqueueDeletion(actualEntry);
     }
 
     Process {
         id: wipeProc
-        command: ["bash", "-c", `${root.cliphistBinary} wipe; rm -rf ~/.cache/cliphist/db; wl-copy --clear`]
+        command: [root.cliphistBinary, "wipe"]
         onExited: (exitCode, exitStatus) => {
-            root.entries = [];
             root.refresh();
         }
     }
 
     function wipe() {
-        root.entries = [];
         wipeProc.running = true;
+    }
+
+    function wipeEntries(entriesToDelete) {
+        for (let i = 0; i < entriesToDelete.length; i++) {
+            enqueueDeletion(entriesToDelete[i]);
+        }
+    }
+
+    function wipeUnpinned() {
+        wipeEntries(root.entries.filter(entry => !root.isPinned(entry)));
+    }
+
+    function wipeUnpinnedOnShutdown() {
+        const unpinned = root.entries.filter(entry => !root.isPinned(entry));
+        if (unpinned.length === 0)
+            return;
+        if (unpinned.length === root.entries.length) {
+            Quickshell.execDetached([root.cliphistBinary, "wipe"]);
+            return;
+        }
+        const commands = unpinned.map(entry =>
+            `printf '%s\\n' '${StringUtils.shellSingleQuoteEscape(entry)}' | ${root.cliphistBinary} delete`);
+        Quickshell.execDetached(["bash", "-c", commands.join("; ")]);
+    }
+
+    readonly property var pinnedEntries: Persistent.states.clipboard.pinnedEntries
+
+    function pin(entry) {
+        if (!isPinned(entry)) {
+            let current = Array.from(root.pinnedEntries);
+            current.push(entry);
+            Persistent.states.clipboard.pinnedEntries = current;
+        }
+    }
+
+    function unpin(entry) {
+        let current = Array.from(root.pinnedEntries);
+        const cleanEntry = StringUtils.cleanCliphistEntry(entry);
+        let index = current.findIndex(candidate => candidate === entry
+            || StringUtils.cleanCliphistEntry(candidate) === cleanEntry);
+        if (index !== -1) {
+            current.splice(index, 1);
+            Persistent.states.clipboard.pinnedEntries = current;
+        }
+    }
+
+    function isPinned(entry) {
+        const cleanEntry = StringUtils.cleanCliphistEntry(entry);
+        for (let i = 0; i < root.pinnedEntries.length; i++) {
+            if (root.pinnedEntries[i] === entry
+                    || StringUtils.cleanCliphistEntry(root.pinnedEntries[i]) === cleanEntry)
+                return true;
+        }
+        return false;
     }
 
     Connections {
@@ -142,13 +453,51 @@ Singleton {
             }
         }
 
+        stderr: StdioCollector { id: readErrors }
+
         onExited: (exitCode, exitStatus) => {
-            if (exitCode === 0) {
-                root.entries = readProc.buffer
+            // A newly created cliphist database is an empty history, not a
+            // failed clipboard service. Keep other failures visible.
+            const emptyDatabase = exitCode === 1
+                && readErrors.text.trim() === "opening db: please store something first";
+            if (exitCode === 0 || emptyDatabase) {
+                root.entries = emptyDatabase ? [] : readProc.buffer
+                root.noteTopEntry()
+                root.clipboardUpdated()
+                root.synchronizeRetention()
             } else {
-                root.entries = []
-                console.error("[Cliphist] Failed to refresh with code", exitCode, "and status", exitStatus)
+                console.error("[Cliphist] Failed to refresh with code", exitCode, "and status", exitStatus, readErrors.text.trim())
             }
+        }
+    }
+
+    Timer {
+        interval: 86400000
+        running: Config.options.search.clipboard.autoDelete.enable
+        repeat: true
+        onTriggered: root.refresh()
+    }
+
+    Connections {
+        target: Persistent
+        function onReadyChanged() {
+            if (Persistent.ready)
+                root.synchronizeRetention();
+        }
+    }
+
+    Connections {
+        target: Config.options.search.clipboard.autoDelete
+        function onEnableChanged() { root.synchronizeRetention(); }
+        function onRetentionDaysChanged() { root.synchronizeRetention(); }
+    }
+
+    Connections {
+        target: Qt.application
+        function onAboutToQuit() {
+            if (Config.options.search.clipboard.autoDelete.enable
+                    && Config.options.search.clipboard.autoDelete.wipeOnShutdown)
+                root.wipeUnpinnedOnShutdown();
         }
     }
 

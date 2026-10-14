@@ -340,10 +340,34 @@ Singleton {
                 }
             }
 
+            property JsonObject clipboard: JsonObject {
+                property list<string> pinnedEntries: []
+                // cliphist exposes stable IDs but no timestamps. These compact
+                // records let its opt-in retention policy age entries without
+                // guessing from their content or deleting pinned data.
+                property list<var> historySeen: []
+            }
+
+            property JsonObject typingTest: JsonObject {
+                property list<var> recentResults: []
+                property list<var> personalBests: []
+                // Lifetime tallies. They outlive `recentResults`, which is
+                // capped, so "tests completed" stays true after the oldest
+                // results have been pruned away.
+                property int testsStarted: 0
+                property int testsCompleted: 0
+                property real secondsTyping: 0
+                // [{ d: "YYYY-MM-DD", n: tests }], one entry per active day,
+                // bounded to roughly a year — enough for the activity map and
+                // far smaller than keeping every result to derive it.
+                property list<var> activity: []
+            }
+
             property JsonObject search: JsonObject {
                 property list<var> aliases: []
                 property list<string> recentEmojis: []
                 property list<string> recentQueries: []
+                property list<string> pinnedFolders: []
                 property list<string> pinnedEntries: []
                 property list<var> panelUsage: []
                 property list<var> calculatorHistory: []

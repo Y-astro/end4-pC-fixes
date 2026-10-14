@@ -28,6 +28,7 @@ Scope {
             && !Config.options.bar.bottom
             && !Config.options.bar.autoHide.enable
         property bool monitorIsFocused: (Hyprland.focusedMonitor?.id == monitor?.id)
+        screen: Quickshell.screens.find(screen => screen.name === GlobalStates.activeSearchMonitor) ?? Quickshell.screens[0]
         visible: GlobalStates.overviewOpen
 
         WlrLayershell.namespace: "quickshell:overview"
@@ -54,7 +55,7 @@ Scope {
                     overviewScope.dontAutoCancelSearch = false;
                     GlobalFocusGrab.dismiss();
                 } else {
-                    if (!overviewScope.dontAutoCancelSearch) {
+                    if (!overviewScope.dontAutoCancelSearch && GlobalStates.searchPendingPanel === "") {
                         searchWidget.cancelSearch();
                     }
                     GlobalFocusGrab.addDismissable(panelWindow);
@@ -65,7 +66,7 @@ Scope {
         Connections {
             target: GlobalFocusGrab
             function onDismissed() {
-                GlobalStates.overviewOpen = false;
+                GlobalStates.closeOverview();
             }
         }
         implicitWidth: columnLayout.implicitWidth
@@ -100,7 +101,7 @@ Scope {
 
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Escape) {
-                    GlobalStates.overviewOpen = false;
+                    GlobalStates.closeOverview();
                 } else if (event.key === Qt.Key_Left) {
                     if (!panelWindow.searchingText)
                         Hyprland.dispatch("workspace r-1");
@@ -113,11 +114,12 @@ Scope {
             SearchWidget {
                 id: searchWidget
                 anchors.horizontalCenter: parent.horizontalCenter
+                surfaceMonitorName: panelWindow.screen?.name ?? ""
             }
 
             Loader {
                 id: overviewLoader
-                visible: (panelWindow?.searchingText ?? "") == ""
+                visible: (panelWindow?.searchingText ?? "") === "" && !GlobalStates.searchPanelActive
                 active: GlobalStates.overviewOpen && (Config?.options.overview.enable ?? true)
                 sourceComponent: (Config?.options.overview.style ?? "default") === "niri" ? niriComponent : defaultComponent
 
@@ -143,48 +145,59 @@ Scope {
 
     function toggleClipboard() {
         if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch) {
-            GlobalStates.overviewOpen = false;
+            GlobalStates.closeOverview();
             return;
         }
         overviewScope.dontAutoCancelSearch = true;
         panelWindow.setSearchingText(Config.options.search.prefix.clipboard);
-        GlobalStates.overviewOpen = true;
+        GlobalStates.openOverview();
     }
 
     function toggleEmojis() {
         if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch) {
-            GlobalStates.overviewOpen = false;
+            GlobalStates.closeOverview();
             return;
         }
         overviewScope.dontAutoCancelSearch = true;
         panelWindow.setSearchingText(Config.options.search.prefix.emojis);
-        GlobalStates.overviewOpen = true;
+        GlobalStates.openOverview();
     }
 
     function toggleSymbols() {
         if (GlobalStates.overviewOpen && overviewScope.dontAutoCancelSearch) {
-            GlobalStates.overviewOpen = false;
+            GlobalStates.closeOverview();
             return;
         }
         overviewScope.dontAutoCancelSearch = true;
-        panelWindow.setSearchingText(Config.options.search.prefix.symbols);
-        GlobalStates.overviewOpen = true;
+        panelWindow.setSearchingText(Config.options.search.prefix.materialSymbols);
+        GlobalStates.openOverview();
     }
 
     IpcHandler {
         target: "search"
 
         function toggle() {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            GlobalStates.toggleOverview();
         }
         function workspacesToggle() {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            GlobalStates.toggleOverview();
         }
         function close() {
-            GlobalStates.overviewOpen = false;
+            GlobalStates.closeOverview();
         }
         function open() {
-            GlobalStates.overviewOpen = true;
+            GlobalStates.openOverview();
+        }
+        function setQuery(query: string): void {
+            overviewScope.dontAutoCancelSearch = true;
+            GlobalStates.openOverview();
+            panelWindow.setSearchingText(query);
+        }
+        function openPanel(panelId: string): void {
+            GlobalStates.openSearchPanel(panelId, "", "");
+        }
+        function openPanelQuery(panelId: string, query: string): void {
+            GlobalStates.openSearchPanel(panelId, "", query);
         }
         function toggleReleaseInterrupt() {
             GlobalStates.superReleaseMightTrigger = false;
@@ -199,7 +212,7 @@ Scope {
         description: "Toggles search on press"
 
         onPressed: {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            GlobalStates.toggleOverview();
         }
     }
     CompositorGlobalShortcut {
@@ -207,7 +220,7 @@ Scope {
         description: "Closes overview on press"
 
         onPressed: {
-            GlobalStates.overviewOpen = false;
+            GlobalStates.closeOverview();
         }
     }
     CompositorGlobalShortcut {
@@ -215,7 +228,7 @@ Scope {
         description: "Toggles overview on press"
 
         onPressed: {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            GlobalStates.toggleOverview();
         }
     }
     CompositorGlobalShortcut {
@@ -231,7 +244,7 @@ Scope {
                 GlobalStates.superReleaseMightTrigger = true;
                 return;
             }
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            GlobalStates.toggleOverview();
         }
     }
     CompositorGlobalShortcut {

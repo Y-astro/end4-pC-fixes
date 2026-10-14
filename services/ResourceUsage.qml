@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import qs.modules.common
+import qs
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -269,6 +270,53 @@ Singleton {
             onStreamFinished: {
                 root.maxAvailableCpuString = (parseFloat(outputCollector.text) / 1000).toFixed(0) + " GHz"
             }
+        }
+    }
+    property list<var> topProcesses: []
+    function parseTopProcesses(output) {
+        const processes = [];
+        for (const line of String(output ?? "").split("\n")) {
+            const match = line.trim().match(/^(\d+)\s+(.*?)\s+([0-9]+(?:\.[0-9]+)?)\s+([0-9]+(?:\.[0-9]+)?)$/);
+            if (!match)
+                continue;
+            const pid = Number(match[1]);
+            const name = String(match[2]).trim()
+                .replace(/[^\p{L}\p{N} ._+:-]/gu, "")
+                .slice(0, 80);
+            const cpuPercent = Number(match[3]);
+            const memoryPercent = Number(match[4]);
+            if (!Number.isInteger(pid) || pid <= 1 || name.length === 0 || !Number.isFinite(cpuPercent))
+                continue;
+            processes.push({
+                pid: pid,
+                name: name,
+                cpuPercent: Math.max(0, Math.round(cpuPercent * 10) / 10),
+                memoryPercent: Math.max(0, Math.round(memoryPercent * 10) / 10)
+            });
+            if (processes.length >= 5)
+                break;
+        }
+        root.topProcesses = processes;
+    }
+    Process {
+        id: topProcessesProc
+        command: ["bash", "-c", "ps -u \"$(id -u)\" -o pid=,comm=,pcpu=,pmem= --sort=-pcpu"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: root.parseTopProcesses(text)
+        }
+    }
+    Timer {
+        id: topProcessesTimer
+        interval: 15000
+        repeat: true
+        // Process enumeration is not part of the bar metrics. Keep it
+        // demand-driven so a background shell does not fork `ps` forever.
+        running: GlobalStates.overviewOpen && (Config.options?.search?.modules?.processes?.enable ?? false)
+        triggeredOnStart: true
+        onTriggered: {
+            if (!topProcessesProc.running)
+                topProcessesProc.running = true;
         }
     }
 }

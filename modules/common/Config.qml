@@ -399,7 +399,21 @@ Singleton {
         blockWrites: root.blockWrites
         onFileChanged: fileReloadTimer.restart()
         onAdapterUpdated: fileWriteTimer.restart()
-        onLoaded: root.ready = true
+        onLoaded: {
+            // Earlier shells stored these module switches as booleans. Preserve
+            // each choice when promoting it to the structured launcher schema.
+            try {
+                const saved = JSON.parse(configFileView.text());
+                const modules = saved?.search?.modules ?? {};
+                for (const key of ["typingTest", "speedTest", "grammar", "fonts", "gifs", "screenshots", "tasks", "timers", "tools", "windowManagement"]) {
+                    if (typeof modules[key] === "boolean")
+                        root.options.search.modules[key].enable = modules[key];
+                }
+            } catch (error) {
+                console.warn("[Config] Could not migrate launcher switches:", error);
+            }
+            root.ready = true;
+        }
         onLoadFailed: error => {
             if (error == FileViewError.FileNotFound) {
                 writeAdapter();
@@ -4948,6 +4962,25 @@ Singleton {
             }
 
             property JsonObject search: JsonObject {
+                property bool enableSystemControls: true
+                property bool enableMathPreview: true
+                property bool showSettings: false
+                property bool alwaysListApps: false
+                property int nonAppResultDelay: 30 // This prevents lagging when typing
+                property string engineBaseUrl: "https://www.google.com/search?q="
+                property list<string> excludedSites: ["quora.com", "facebook.com"]
+                property bool sloppy: false // Uses levenshtein distance based scoring instead of fuzzy sort. Very weird.
+                property bool levenshtein: false
+                property bool frecency: true
+                // fuzzysort matches any subsequence, so with no floor "file"
+                // reaches "OpenJDK 25 for x86_64 Monitoring & Management
+                // Console". Measured on this machine, the genuine hits for
+                // "file" score 0.82–0.94 and the noise 0.25–0.30, so 0.35 cuts
+                // the tail without emptying short queries.
+                property real fuzzyThreshold: 0.35
+                // And anything below this fraction of the best hit is noise
+                // *next to that hit*, whatever its absolute score.
+                property real fuzzyRelativeCutoff: 0.35
                 property JsonObject bestMatch: JsonObject {
                     // Render the top result as one prominent row with its own
                     // actions on it, and the rest as a single uniform list.
@@ -4989,6 +5022,11 @@ Singleton {
                     property bool allowRemoteFavicons: false
                     property int refreshMinutes: 10
                 }
+                property list<var> aliases: []
+                // Priority of the result groups, top to bottom. Removing an
+                // entry hides that group's results, so this list is both the
+                // order and the on/off switch. Reordered from Settings; the
+                // catalogue of ids lives in SearchResultSectionRegistry.
                 property list<var> sectionOrder: [
                     {
                         "id": "suggested"
@@ -5037,6 +5075,10 @@ Singleton {
                     }
                 ]
                 property string fileSearchDirectory: "/home"
+                // Image and vector hits draw themselves in the row's icon slot.
+                // Turning this on drops the thumbnail and leaves the file kind's
+                // symbol there instead — hiding the picture outright rather than
+                // blurring 32 pixels of it.
                 property bool blurFileSearchResultPreviews: false
                 property JsonObject fileSearch: JsonObject {
                     // Show files and folders from the indexed directory for a
@@ -5065,12 +5107,50 @@ Singleton {
                     property bool includeHidden: false
                     property list<string> excludedDirectories: ["node_modules", ".git", ".cache", ".venv", "__pycache__", ".cargo", ".rustup", ".npm", ".local/share/Trash"]
                 }
+                property JsonObject fileContent: JsonObject {
+                    // ripgrep stops once this many files matched; the walk
+                    // of a whole home directory never has to finish.
+                    property int maxResults: 40
+                    property int maxFileSizeMb: 8
+                    property int minimumQueryLength: 3
+                }
                 property JsonObject calculator: JsonObject {
                     // A currency conversion refreshes qalc's rates at most
                     // once a day; qalc otherwise answers from months-old ones.
                     property bool updateExchangeRates: true
                     property int historyMaxItems: 30
                 }
+                property JsonObject fileBrowser: JsonObject {
+                    // The explorer needs more room than the result-oriented
+                    // panels: its file list, preview and metadata are visible
+                    // at the same time. These values remain user-adjustable.
+                    property int panelWidth: 1120
+                    property int panelBodyHeight: 620
+                }
+                property JsonObject prefix: JsonObject {
+                    property bool showDefaultActionsWithoutPrefix: true
+                    property string action: "/"
+                    property string app: ">"
+                    property string bluetooth: "<"
+                    property string clipboard: ";"
+                    property string fileSearch: ","
+                    property string fileContent: "'"
+                    property string emojis: ":"
+                    property string math: "="
+                    property string shellCommand: "$"
+                    property string webSearch: "?"
+                    property string windowSearch: "#"
+                    property string fileBrowser: "~"
+                    property string translator: "@"
+                    property string mediaDownloader: "!"
+                    property string materialSymbols: "."
+                    property string typingTest: "^"
+                    property string speedTest: "%"
+                    property string ai: "&"
+
+                    property string keybinds: "<"
+                    property string symbols: "."
+}
                 property JsonObject typingTest: JsonObject {
                     property string language: "english_1k"
                     // "standard" uses the curated ~1k word lists; "extended" loads
@@ -5129,6 +5209,158 @@ Singleton {
                         property int maxEntries: 100
                     }
                 }
+                property JsonObject ai: JsonObject {
+                    // How the AI chat is triggered from the search:
+                    // "prefix" — only via the configured prefix
+                    // "suggest" — adds an "Ask AI" fallback row to the results
+                    // "auto" — switches to the AI chat when the query matches nothing
+                    property string trigger: "suggest"
+                }
+                property JsonObject speedTest: JsonObject {
+                    property int duration: 10
+                    property string mode: "both"
+                    property string unit: "mbps"
+                }
+                // Search surfaces consume this module contract through
+                // SearchPanelRegistry. A panel cannot accidentally remain in
+                // aliases or prefix routing after its feature is disabled.
+                property JsonObject modules: JsonObject {
+                    property bool clipboard: true
+                    property bool bluetooth: true
+                    property bool translator: true
+                    property bool mediaDownloader: true
+                    property bool materialSymbols: true
+                    property JsonObject typingTest: JsonObject {
+                        property bool enable: true
+                    }
+                    property JsonObject speedTest: JsonObject {
+                        property bool enable: true
+                    }
+                    property JsonObject emojis: JsonObject {
+                        property bool enable: true
+                        property string skinTone: "none"
+                        property int gridColumns: 8
+                        property bool showRecents: true
+                        property string defaultCategory: "all"
+                    }
+                    property bool windowSearch: true
+                    property bool fileBrowser: true
+                    property bool fileSearch: true
+                    // `'` searches inside files with ripgrep.
+                    property bool fileContent: true
+                    // KDE Connect / LocalSend actions on file rows.
+                    property JsonObject phoneShare: JsonObject {
+                        property bool enable: true
+                    }
+                    property JsonObject gifs: JsonObject {
+                        property bool enable: true
+                        // KLIPY content rating: "off", "low", "medium" or "high".
+                        property string contentFilter: "medium"
+                        property int columns: 4
+                        property int perPage: 30
+                    }
+                    property JsonObject grammar: JsonObject {
+                        property bool enable: true
+                    }
+                    property JsonObject fonts: JsonObject {
+                        property bool enable: true
+                        property string sampleText: "The quick brown fox jumps over the lazy dog 0123456789"
+                    }
+                    property bool math: true
+                    property bool webSearch: true
+                    property bool shellCommand: true
+                    property bool systemControls: true
+                    property bool shellActions: true
+                    property JsonObject calendar: JsonObject {
+                        property bool enable: false
+                        property string source: "khal"
+                        property int lookaheadDays: 14
+                        property bool showDeclined: false
+                        property bool allowCreate: true
+                        property string defaultCalendarId: ""
+                        property int defaultDurationMin: 30
+                        property list<string> hiddenCalendars: []
+                    }
+                    property JsonObject tasks: JsonObject {
+                        property bool enable: true
+                        property bool showCompleted: false
+                        property bool allowCreate: true
+                        property string defaultList: ""
+                        property int lookaheadDays: 7
+                    }
+                    property JsonObject timers: JsonObject {
+                        property bool enable: true
+                        property bool showPomodoro: true
+                        property bool showStopwatch: true
+                        property bool showAlarms: true
+                        property list<int> quickPresets: [5, 10, 15, 25, 45, 60]
+                    }
+                    property JsonObject quicklinks: JsonObject {
+                        property bool enable: true
+                        property list<var> links: []
+                        property bool copyOnEnter: false
+                        property bool fetchFavicons: true
+                    }
+                    property JsonObject windowManagement: JsonObject {
+                        property bool enable: true
+                        property bool showTilingPresets: true
+                        property bool showWorkspaceMoves: true
+                        property bool showMonitorMoves: true
+                        property int columns: 3
+                    }
+                    property JsonObject screenshots: JsonObject {
+                        property bool enable: true
+                        property int maxItems: 60
+                        property bool blurPreviews: false
+                    }
+                    property JsonObject settingsToggles: JsonObject {
+                        property bool enable: true
+                        property bool showPages: true
+                        property int maxInlineResults: 0
+                    }
+                    property JsonObject quickToggles: JsonObject {
+                        property bool enable: true
+                        property list<string> hidden: []
+                    }
+                    property JsonObject keybinds: JsonObject {
+                        property bool enable: true
+                        property bool includeUserBinds: true
+                        property bool includeDefaultBinds: true
+                    }
+                    property JsonObject cheatsheet: JsonObject {
+                        property bool enable: true
+                        property bool commandsPanel: true
+                        property bool gmailPanel: true
+                    }
+                    property JsonObject sports: JsonObject {
+                        property bool enable: false
+                        property int lookaheadHours: 72
+                        property list<string> leagues: []
+                    }
+                    property JsonObject snippets: JsonObject {
+                        property bool enable: true
+                        property list<var> items: []
+                    }
+                    property JsonObject notes: JsonObject {
+                        property bool enable: true
+                    }
+                    property JsonObject processes: JsonObject {
+                        property bool enable: true
+                    }
+                    property JsonObject converter: JsonObject {
+                        property bool enable: true
+                        property string baseCurrency: "BRL"
+                    }
+                    property JsonObject tools: JsonObject {
+                        property bool enable: true
+                    }
+                    property JsonObject generators: JsonObject {
+                        property bool enable: true
+                    }
+
+                    property bool commands: true
+                    property bool emoji: true
+}
                 property JsonObject frecencyData: JsonObject {
                     property bool trackApps: true
                     property bool trackPanels: true
@@ -5137,6 +5369,8 @@ Singleton {
                 property JsonObject favorites: JsonObject {
                     property bool enable: true
                 }
+                // Ctrl+letter shortcuts bound to results from More actions.
+                // The bindings themselves live in Persistent.states.search.
                 property JsonObject resultKeybinds: JsonObject {
                     property bool enable: true
                 }
@@ -5148,6 +5382,8 @@ Singleton {
                     property bool enable: true
                     property int maxItems: 50
                 }
+                // Search-only bindings. They remain local to the focused Search
+                // field and therefore cannot collide with Hyprland global binds.
                 property list<var> keybindings: [
                     {
                         actionId: "actions",
@@ -5246,32 +5482,29 @@ Singleton {
                         shortcut: "Alt+Right"
                     }
                 ]
-                property JsonObject nowPlaying: JsonObject {
-                    property bool enable: false
-                    property bool showInlineControls: true
-                    property bool tintFromArtwork: false
-                    property bool showPlayerName: true
-                }
-                property bool showNowPlayingBubble: nowPlaying.enable
-                property string connectStyle: "connect"  // Search rendered as embedded drop in Connect Mode
-                property int baseWidth: 580
-                property int baseHeight: 500
-                property string positionStyle: "default"
-                property real centerVerticalRatio: 0.3
-
-                property bool enableSystemControls: true
-                property bool enableMathPreview: true
                 property JsonObject appearance: JsonObject {
-                    property string resultsStyle: "classic"
-
                     property bool accentPanels: true
                     property real accentStrength: 0.12
                     property bool showKeyHints: true
                     property bool showKeyHintBar: true
+                    // "classic": the original rows. "expressive": Material 3
+                    // Expressive rows — shape-backed icons that morph on
+                    // selection, title-face names, tonal selection.
+                    property string resultsStyle: "classic"
                     property int panelWidth: 860
                     property int panelBodyHeight: 420
                 }
+                property JsonObject imageSearch: JsonObject {
+                    property string imageSearchEngineBaseUrl: "https://lens.google.com/uploadbyurl?url="
+                    property bool useCircleSelection: false
+                }
                 property JsonObject clipboard: JsonObject {
+                    property int panelWidth: 860
+                    property real listColumnRatio: 0.40
+                    property bool showMetadata: true
+                    property int imageHeight: 200
+                    property int previewFontSize: 12
+                    property bool enableSloppySearch: false
                     property JsonObject autoDelete: JsonObject {
                         property bool enable: false
                         property int retentionDays: 30
@@ -5288,25 +5521,25 @@ Singleton {
                         property bool number: true
                         property bool multiline: true
                     }
-
-                    property int panelWidth: 860
-                    property real listColumnRatio: 0.40
-                    property bool showMetadata: true
-                    property int imageHeight: 200
-                    property int previewFontSize: 12
-                    property bool enableSloppySearch: false
                 }
-                property JsonObject fileBrowser: JsonObject {
-                    property int panelBodyHeight: 620
-
-                    property int panelWidth: 1120
+                property JsonObject nowPlaying: JsonObject {
+                    property bool enable: false
+                    property bool showInlineControls: true
+                    property bool tintFromArtwork: false
+                    property bool showPlayerName: true
                 }
-                property JsonObject fileContent: JsonObject {
-                    property int maxResults: 40
-                    property int maxFileSizeMb: 8
-                    property int minimumQueryLength: 3
-                }
+                property bool showNowPlayingBubble: nowPlaying.enable
+                property string connectStyle: "connect"  // Search rendered as embedded drop in Connect Mode
+                property int baseWidth: 580
+                property int baseHeight: 500
+                property string positionStyle: "default"
+                property real centerVerticalRatio: 0.3
                 property JsonObject suggestions: JsonObject {
+                    property bool enable: false
+                    // Applies only to the "Suggestions" strip below — every
+                    // other idle category shows in full, the same way its
+                    // real-search counterpart does.
+                    property int maxSuggestionsPerSection: 5
                     property bool showFrecency: true
                     property bool showCommands: false
                     property bool showApps: true
@@ -5314,152 +5547,6 @@ Singleton {
                     property bool showToggles: true
                     property bool showPanels: true
                     property bool showQuicklinks: true
-
-                    property bool enable: false
-                    property int maxSuggestionsPerSection: 5
-                }
-                property bool showSettings: false
-                property bool alwaysListApps: false
-                property bool levenshtein: false
-                property bool frecency: true
-                property real fuzzyThreshold: 0.35
-                property real fuzzyRelativeCutoff: 0.35
-                property list<var> aliases: []
-                property int nonAppResultDelay: 30 // This prevents lagging when typing
-                property string engineBaseUrl: "https://www.google.com/search?q="
-                property list<string> excludedSites: ["quora.com", "facebook.com"]
-                property bool sloppy: false // Uses levenshtein distance based scoring instead of fuzzy sort. Very weird.
-                property JsonObject modules: JsonObject {
-                    property bool windowSearch: true
-                    property bool fileSearch: true
-                    property bool fileContent: true
-                    property JsonObject phoneShare: JsonObject {
-                        property bool enable: true
-                    }
-                    property bool math: true
-                    property bool webSearch: true
-                    property bool shellCommand: true
-                    property bool systemControls: true
-                    property bool shellActions: true
-                    property JsonObject calendar: JsonObject {
-                        property bool enable: false
-                        property string source: "khal"
-                        property int lookaheadDays: 14
-                        property bool showDeclined: false
-                        property bool allowCreate: true
-                        property string defaultCalendarId: ""
-                        property int defaultDurationMin: 30
-                        property list<string> hiddenCalendars: []
-                    }
-                    property JsonObject quicklinks: JsonObject {
-                        property bool enable: true
-                        property list<var> links: []
-                        property bool copyOnEnter: false
-                        property bool fetchFavicons: true
-                    }
-                    property JsonObject quickToggles: JsonObject {
-                        property bool enable: true
-                        property list<string> hidden: []
-                    }
-                    property JsonObject keybinds: JsonObject {
-                        property bool enable: true
-                        property bool includeUserBinds: true
-                        property bool includeDefaultBinds: true
-                    }
-                    property JsonObject cheatsheet: JsonObject {
-                        property bool enable: true
-                        property bool commandsPanel: true
-                        property bool gmailPanel: true
-                    }
-                    property JsonObject sports: JsonObject {
-                        property bool enable: false
-                        property int lookaheadHours: 72
-                        property list<string> leagues: []
-                    }
-                    property JsonObject snippets: JsonObject {
-                        property bool enable: true
-                        property list<var> items: []
-                    }
-                    property JsonObject notes: JsonObject {
-                        property bool enable: true
-                    }
-                    property JsonObject processes: JsonObject {
-                        property bool enable: true
-                    }
-                    property JsonObject converter: JsonObject {
-                        property bool enable: true
-                        property string baseCurrency: "BRL"
-                    }
-                    property JsonObject generators: JsonObject {
-                        property bool enable: true
-                    }
-
-                    property bool clipboard: true
-                    property bool bluetooth: true
-                    property bool translator: true
-                    property bool mediaDownloader: true
-                    property bool materialSymbols: true
-                    property bool typingTest: true
-                    property bool speedTest: true
-                    property bool grammar: true
-                    property bool commands: true
-                    property bool emoji: true
-                    property JsonObject emojis: JsonObject {
-                        property bool enable: true
-                        property string skinTone: "none"
-                        property int gridColumns: 8
-                        property bool showRecents: true
-                        property string defaultCategory: "all"
-                    }
-                    property bool fileBrowser: true
-                    property bool fonts: true
-                    property bool gifs: true
-                    property bool screenshots: true
-                    property bool tasks: true
-                    property bool timers: true
-                    property bool tools: true
-                    property bool windowManagement: true
-                    property JsonObject settingsToggles: JsonObject {
-                        property bool enable: true
-                        property bool showPages: true
-                        property int maxInlineResults: 0
-                    }
-                }
-                property JsonObject speedTest: JsonObject {
-                    property int duration: 10
-                    property string mode: "both"
-                    property string unit: "mbps"
-                }
-                property JsonObject ai: JsonObject {
-                    property string trigger: "suggest"
-                }
-                property JsonObject prefix: JsonObject {
-                    property string bluetooth: "<"
-                    property string fileSearch: ","
-                    property string fileContent: "'"
-                    property string windowSearch: "#"
-                    property string fileBrowser: "~"
-                    property string translator: "@"
-                    property string mediaDownloader: "!"
-                    property string materialSymbols: "*"
-                    property string typingTest: "^"
-                    property string speedTest: "%"
-                    property string ai: "&"
-
-                    property bool showDefaultActionsWithoutPrefix: true
-                    property string action: "/"
-                    property string app: ">"
-                    property string clipboard: ";"
-                    property string emojis: ":"
-                    property string keybinds: "<"
-                    property string symbols: "."
-                    property string math: "="
-                    property string shellCommand: "$"
-                    property string webSearch: "?"
-                }
-                property JsonObject imageSearch: JsonObject {
-                    property string imageSearchEngineBaseUrl: "https://lens.google.com/uploadbyurl?url="
-                    property bool useCircleSelection: false
                 }
             }
 

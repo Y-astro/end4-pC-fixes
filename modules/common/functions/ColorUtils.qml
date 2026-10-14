@@ -215,4 +215,14 @@ Singleton {
 
         return Qt.rgba(clamp01(r), clamp01(g), clamp01(b), overlayOpacity);
     }
+    function categoryAccent(hueOffset, shade, themeColor) {
+        var t = Qt.color(themeColor);
+        var h = ((t.hslHue * 360 + hueOffset) % 360 + 360) % 360 / 360;
+        var s = Math.min(0.9, Math.max(0.5, t.hslSaturation)) - shade * 0.13;
+        var base = 0.5 + (t.hslLightness - 0.5) * 0.3;
+        // Step away from mid-grey, never across it, so every member keeps the
+        // same contrast direction against the shell background.
+        var l = base + (base >= 0.5 ? 1 : -1) * shade * 0.1;
+        return Qt.hsla(h, Math.min(0.95, Math.max(0.3, s)), Math.min(0.86, Math.max(0.22, l)), 1);
+    }
 }

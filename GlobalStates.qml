@@ -123,13 +123,39 @@ Singleton {
         root.openOverview(monitorName);
     }
 
+    // The retained overview hosts Search in its own floating surface.
+    readonly property bool searchConnectActive: false
+    readonly property bool classicOverviewOpen: root.overviewOpen
+    property var scrollingOverviewNavigator: null
+    property bool islandTextDragActive: false
+    property var fileBrowserSearchResults: []
+    property string fileBrowserSearchQuery: ""
+    property int fileBrowserSearchRequest: 0
+
+    function clearFileBrowserSearchResults() {
+        root.fileBrowserSearchResults = [];
+        root.fileBrowserSearchQuery = "";
+        root.fileBrowserSearchRequest++;
+    }
+
+    function openFileBrowserResults(paths, query, monitorName) {
+        const results = Array.from(paths ?? []).filter(path => String(path ?? "").length > 0);
+        if (results.length === 0)
+            return;
+        root.fileBrowserSearchResults = results;
+        root.fileBrowserSearchQuery = String(query ?? "");
+        root.fileBrowserSearchRequest++;
+        root.openSearchPanel("fileBrowser", monitorName, "");
+    }
+
     property string searchPendingPanel: ""
     property string searchPendingPanelQuery: ""
     property int searchPanelNavigationRequest: 0
 
     function openSearchPanel(panelId, monitorName, initialQuery) {
         const requested = String(panelId ?? "").trim();
-        if (requested.length === 0)
+        const panel = SearchPanelRegistry.byId(requested);
+        if (!panel || !panel.enabled())
             return;
         root.searchPendingPanel = requested;
         root.searchPendingPanelQuery = String(initialQuery ?? "");

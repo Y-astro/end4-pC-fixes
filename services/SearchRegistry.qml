@@ -42,10 +42,7 @@ Item {
         root._memoResults = null;
         root.indexed = false;
         root.indexing = true;
-        let shellRoot = FileUtils.trimFileProtocol(Quickshell.shellPath(""));
-        if (!shellRoot.endsWith("/"))
-            shellRoot += "/";
-        let configRoot = shellRoot;
+        let configRoot = FileUtils.trimFileProtocol(Directories.config) + "/quickshell/ii/";
         let basePath = configRoot + "modules/settings/configs/";
 
         let files = [];
@@ -54,9 +51,14 @@ Item {
         for (let p of SettingsPageRegistry.pages) {
             if (p.searchable === false)
                 continue;
-            files.push(configRoot + p.component);
-            ids.push(p.id);
-            subPages.push("");
+            // A page drawn with tiles, cards and live previews can have its options
+            // indexed through `searchSources` alone: its own file would add the
+            // sections whose controls name page ids, which a clone cannot resolve.
+            if (p.searchComponent !== false) {
+                files.push(configRoot + p.component);
+                ids.push(p.id);
+                subPages.push("");
+            }
             for (let sub of (p.subPages ?? [])) {
                 files.push(basePath + sub);
                 ids.push(p.id);
@@ -66,10 +68,12 @@ Item {
             // are not sub-pages. Index them with an empty subPage so a search
             // result navigates to the parent page and waits for the section's
             // own lazy loader instead of trying to open the source as a page.
+            // A source that stands in for a sub-page's options opens that
+            // sub-page instead (`searchSubPages`).
             for (let source of (p.searchSources ?? [])) {
                 files.push(basePath + source);
                 ids.push(p.id);
-                subPages.push("");
+                subPages.push(p.searchSubPages?.[source] ?? "");
             }
         }
 
@@ -88,8 +92,6 @@ Item {
         root.settingsActive = active;
         if (!active) {
             root.clearIndex();
-        } else {
-            root.ensureIndexing();
         }
     }
 
@@ -157,7 +159,6 @@ Item {
         function finishIndexing() {
             root.indexing = false;
             root.indexed = true;
-            console.log("[SearchRegistry] Indexing complete:", root.sections.length, "sections indexed across", files.length, "files");
             path = "";
             files = [];
             pageIds = [];
@@ -181,7 +182,6 @@ Item {
         onLoadFailed: {
             if (currentIndex >= files.length || !root.indexing)
                 return;
-            console.warn("[SearchRegistry] Failed to load file:", pageFile.path);
             currentIndex++;
             if (currentIndex >= files.length) {
                 finishIndexing();
@@ -442,7 +442,21 @@ Item {
             while (j < text.length && depth > 0) {
                 let ch = text[j];
 
-                if (!inString && (ch === '"' || ch === "'")) {
+                // Prose in comments ("the user's …") holds quotes and braces that
+                // are not code. Skipping them keeps one apostrophe from turning the
+                // rest of the file into a string and swallowing every section after it.
+                if (!inString && ch === "/" && (text[j + 1] === "/" || text[j + 1] === "*")) {
+                    if (text[j + 1] === "/") {
+                        const eol = text.indexOf("\n", j);
+                        j = eol === -1 ? text.length : eol;
+                    } else {
+                        const close = text.indexOf("*/", j + 2);
+                        j = close === -1 ? text.length : close + 2;
+                    }
+                    continue;
+                }
+
+                if (!inString && (ch === '"' || ch === "'" || ch === "`")) {
                     inString = true;
                     stringChar = ch;
                 } else if (inString && ch === stringChar) {

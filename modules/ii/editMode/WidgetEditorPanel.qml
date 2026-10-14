@@ -4,6 +4,7 @@ import qs
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.ii.background.widgets
+import "."
 
 Rectangle {
     id: root
@@ -14,7 +15,7 @@ Rectangle {
     readonly property var entry: GlobalStates.editWidgetInstanceId ? root.instance : Config.options.background.widgets[GlobalStates.editWidgetKey]
     readonly property var metadata: root.instance ? WidgetsRegistry.getWidgetMetadata(root.instance.widgetId) : null
     readonly property var legacy: LegacyWidgetCatalog.widgets.find(entry => entry.id === GlobalStates.editWidgetKey)
-    readonly property string selectionName: root.metadata?.name || root.legacy?.name || ""
+    readonly property string selectionName: (root.metadata ? root.metadata.name : "") || (root.legacy ? root.legacy.name : "") || ""
     readonly property var catalog: LegacyWidgetCatalog.widgets.map(widget => Object.assign({}, widget, { legacy: true }))
         .concat(WidgetsRegistry.allWidgets.map(widget => Object.assign({}, widget, { id: widget.widgetId, legacy: false })))
         .filter(widget => !root.query || (widget.name + " " + widget.category).toLowerCase().includes(root.query.toLowerCase()))
@@ -84,7 +85,7 @@ Rectangle {
             Layout.fillHeight: true
             active: GlobalStates.editModePage === "bar"
             visible: active
-            sourceComponent: LegacyBarLayoutConfig {}
+            sourceComponent: Component { LegacyBarLayoutConfig {} }
         }
         ColumnLayout {
             Layout.fillWidth: true
@@ -120,7 +121,7 @@ Rectangle {
                         Layout.fillWidth: true
                         text: modelData.toUpperCase(); icon: "open_with"
                         from: 0; to: modelData === "x" ? root.screen.width : root.screen.height
-                        value: Math.round(root.entry?.[modelData] ?? 0)
+                        value: Math.round((root.entry && root.entry[modelData] !== undefined) ? root.entry[modelData] : 0)
                         onValueChanged: if (root.entry && root.entry[modelData] !== value) root.setPosition(modelData, value)
                     }
                 }
@@ -130,7 +131,7 @@ Rectangle {
                 visible: !!root.entry
                 text: qsTr("Placement")
                 fieldWidth: 175
-                currentValue: root.entry?.placementStrategy ?? "free"
+                currentValue: (root.entry && root.entry.placementStrategy) ? root.entry.placementStrategy : "free"
                 model: [{ value: "free", displayName: qsTr("Free") }, { value: "leastBusy", displayName: qsTr("Least busy") }, { value: "mostBusy", displayName: qsTr("Most busy") }]
                 onSelected: value => root.setPosition("placementStrategy", value)
             }
@@ -139,7 +140,7 @@ Rectangle {
                 visible: !!root.instance
                 text: qsTr("Lock screen")
                 fieldWidth: 175
-                currentValue: root.instance?.lockBehavior ?? "keep"
+                currentValue: (root.instance && root.instance.lockBehavior) ? root.instance.lockBehavior : "keep"
                 model: [{ value: "keep", displayName: qsTr("Show") }, { value: "hide", displayName: qsTr("Hide") }, { value: "lockOnly", displayName: qsTr("Only when locked") }]
                 onSelected: value => root.setPosition("lockBehavior", value)
             }
@@ -153,8 +154,8 @@ Rectangle {
                 Layout.fillWidth: true; Layout.fillHeight: true
                 visible: active
                 active: root.showingOptions
-                source: root.metadata?.configPage ? Qt.resolvedUrl("../../settings/configs/" + root.metadata.configPage) : ""
-                sourceComponent: root.metadata?.configPage ? null : legacyOptions
+                source: (root.metadata && root.metadata.configPage) ? Qt.resolvedUrl("../../settings/configs/" + root.metadata.configPage) : ""
+                sourceComponent: (root.metadata && root.metadata.configPage) ? null : legacyOptions
                 onLoaded: if (item && item.goBack) item.goBack.connect(() => root.showingOptions = false)
             }
             ColumnLayout {
@@ -183,7 +184,7 @@ Rectangle {
                                 StyledText { Layout.fillWidth: true; text: catalogRow.modelData.name; elide: Text.ElideRight }
                                 StyledText { text: catalogRow.modelData.category || ""; font.pixelSize: 11 }
                             }
-                            MaterialSymbol { text: catalogRow.modelData.legacy && Config.options.background.widgets[catalogRow.modelData.id]?.enable ? "check" : "add"; iconSize: 20 }
+                            MaterialSymbol { text: catalogRow.modelData.legacy && (Config.options.background.widgets[catalogRow.modelData.id] && Config.options.background.widgets[catalogRow.modelData.id].enable) ? "check" : "add"; iconSize: 20 }
                         }
                     }
                 }

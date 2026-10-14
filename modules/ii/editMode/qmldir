@@ -1,0 +1,7 @@
+module qs.modules.ii.editMode
+
+EditAlignBar 1.0 EditAlignBar.qml
+LegacyBarLayoutConfig 1.0 LegacyBarLayoutConfig.qml
+LegacyWidgetCatalog 1.0 LegacyWidgetCatalog.qml
+LegacyWidgetOptions 1.0 LegacyWidgetOptions.qml
+WidgetEditorPanel 1.0 WidgetEditorPanel.qml

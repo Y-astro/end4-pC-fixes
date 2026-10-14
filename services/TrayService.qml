@@ -36,11 +36,14 @@ Singleton {
     // (and follows LayoutUpdated), and SysTrayMenu opens with its entries in place.
     Instantiator {
         model: SystemTray.items
-        delegate: QsMenuOpener {
+        delegate: Item {
+            id: trayItemHolder
             required property SystemTrayItem modelData
-            menu: modelData.hasMenu ? modelData.menu : null
+            property QsMenuOpener menuOpener: QsMenuOpener {
+                menu: trayItemHolder.modelData && trayItemHolder.modelData.hasMenu ? trayItemHolder.modelData.menu : null
+            }
             Connections {
-                target: modelData
+                target: trayItemHolder.modelData
                 function onStatusChanged() { root.refreshItems(); }
                 function onTitleChanged() { root.refreshItems(); }
                 function onTooltipTitleChanged() { root.refreshItems(); }

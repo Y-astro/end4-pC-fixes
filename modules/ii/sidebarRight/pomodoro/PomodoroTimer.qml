@@ -15,41 +15,17 @@ Item {
     ColumnLayout {
         id: contentColumn
         anchors.fill: parent
+        anchors.bottomMargin: 8
         spacing: 0
 
-        Item {
+        ClockPicker {
             Layout.alignment: Qt.AlignHCenter
-            implicitWidth: 200
-            implicitHeight: 200
-
-            ClockPicker {
-                anchors.fill: parent
-                value: Math.round(TimerService.focusTime / 60)
-                running: TimerService.pomodoroRunning
-                onDragFinished: val => {
-                    if (!TimerService.pomodoroRunning) {
-                        Config.options.time.pomodoro.focus = val * 60;
-                        TimerService.pomodoroSecondsLeft = val * 60; 
-                    }
-                }
-            }
-
-            Rectangle {
-                radius: Appearance.rounding.full
-                color: Appearance.colors.colLayer2
-                anchors {
-                    right: parent.right
-                    bottom: parent.bottom
-                }
-                implicitWidth: 36
-                implicitHeight: implicitWidth
-
-                StyledText {
-                    anchors.centerIn: parent
-                    color: Appearance.colors.colOnLayer2
-                    text: TimerService.pomodoroCycle + 1
-                }
-            }
+            Layout.preferredWidth: 248
+            Layout.preferredHeight: 248
+            durationSeconds: TimerService.focusTime
+            secondsLeft: TimerService.pomodoroSecondsLeft
+            running: TimerService.pomodoroRunning
+            onDurationEdited: seconds => TimerService.setTimerDuration(seconds)
         }
 
         RowLayout {
@@ -60,7 +36,7 @@ Item {
                 contentItem: StyledText {
                     anchors.centerIn: parent
                     horizontalAlignment: Text.AlignHCenter
-                    text: TimerService.pomodoroRunning ? Translation.tr("Pause") : (TimerService.pomodoroSecondsLeft === TimerService.focusTime) ? Translation.tr("Start") : Translation.tr("Resume")
+                    text: TimerService.pomodoroRunning ? Translation.tr("Pause") : (TimerService.pomodoroSecondsLeft === TimerService.focusTime || TimerService.pomodoroSecondsLeft === 0) ? Translation.tr("Start") : Translation.tr("Resume")
                     color: TimerService.pomodoroRunning ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnPrimary
                 }
                 implicitHeight: 35
@@ -75,7 +51,7 @@ Item {
                 implicitHeight: 35
                 implicitWidth: 90
                 onClicked: TimerService.resetPomodoro()
-                enabled: (TimerService.pomodoroSecondsLeft < TimerService.pomodoroLapDuration) || TimerService.pomodoroCycle > 0 || TimerService.pomodoroBreak
+                enabled: TimerService.pomodoroRunning || TimerService.pomodoroSecondsLeft !== TimerService.focusTime
                 font.pixelSize: Appearance.font.pixelSize.larger
                 colBackground: Appearance.colors.colErrorContainer
                 colBackgroundHover: Appearance.colors.colErrorContainerHover

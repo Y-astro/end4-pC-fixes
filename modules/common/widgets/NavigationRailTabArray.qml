@@ -13,9 +13,15 @@ Item {
     implicitWidth: tabBarColumn.implicitWidth
     Layout.topMargin: 25
 
+    // Repeater is itself a child; only index the actual navigation buttons.
+    readonly property var selectedButton: {
+        const buttons = Array.from(tabBarColumn.children).filter(child => child.visualWidth !== undefined);
+        return buttons[root.currentIndex] ?? null;
+    }
+
     Rectangle {
-        property real itemHeight: tabBarColumn.children[0]?.baseSize ?? 56
-        property real baseHighlightHeight: tabBarColumn.children[0]?.baseHighlightHeight ?? 56
+        property real itemHeight: root.selectedButton?.baseSize ?? 56
+        property real baseHighlightHeight: root.selectedButton?.baseHighlightHeight ?? 32
         anchors {
             top: tabBarColumn.top
             left: tabBarColumn.left
@@ -24,7 +30,7 @@ Item {
         radius: Config.options.settings.style === "minimal" ? Appearance.rounding.small : Appearance.rounding.full
         color: root.colToggled
         implicitHeight: root.expanded ? itemHeight : baseHighlightHeight
-        implicitWidth: tabBarColumn?.children[root.currentIndex]?.visualWidth ?? 100
+        implicitWidth: root.selectedButton?.visualWidth ?? 56
 
         Behavior on anchors.topMargin {
             NumberAnimation {

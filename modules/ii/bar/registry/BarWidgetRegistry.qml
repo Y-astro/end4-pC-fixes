@@ -36,7 +36,6 @@ QtObject {
             // Always expressive — no user config toggle
             case "privacy_pill":
             case "dictation_indicator":
-            case "shell_update_indicator":
             case "phone_scrcpy_indicator":
             case "mode_indicator":
             case "easyeffects_indicator":

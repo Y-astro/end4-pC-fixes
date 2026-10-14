@@ -560,7 +560,7 @@ Item {
             id: update
             readonly property real preferredWidth: root.diameter
             // 0 is "unknown" (offline, rate-limited, not a GitHub remote), not "level".
-            readonly property int behind: ShellUpdates.commitsBehind
+            readonly property int behind: 0
             readonly property var heroItems: [updateIcon]
 
             MaterialSymbol {

@@ -79,6 +79,44 @@ class ScrcpySessionManager:
                     else:
                         usb_devices.append(serial)
 
+            if not usb_devices and not ip_devices:
+                subprocess.run(["adb", "reconnect"], capture_output=True, timeout=3)
+                res = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=4)
+                for line in res.stdout.splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("List of"):
+                        continue
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1] == "device":
+                        serial = parts[0]
+                        if ":" in serial:
+                            ip_devices.append(serial)
+                        else:
+                            usb_devices.append(serial)
+
+            if not usb_devices and not ip_devices:
+                try:
+                    lsusb_res = subprocess.run(["lsusb"], capture_output=True, text=True, timeout=3)
+                    lsusb_out = lsusb_res.stdout.lower()
+                    android_vendors = ("google", "samsung", "oneplus", "oppo", "xiaomi", "huawei", "motorola", "realme", "vivo", "lg", "sony", "asus", "transsion", "22d9:")
+                    if any(v in lsusb_out for v in android_vendors):
+                        subprocess.run(["adb", "kill-server"], capture_output=True, timeout=3)
+                        subprocess.run(["adb", "start-server"], capture_output=True, timeout=3)
+                        res = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=4)
+                        for line in res.stdout.splitlines():
+                            line = line.strip()
+                            if not line or line.startswith("List of"):
+                                continue
+                            parts = line.split()
+                            if len(parts) >= 2 and parts[1] == "device":
+                                serial = parts[0]
+                                if ":" in serial:
+                                    ip_devices.append(serial)
+                                else:
+                                    usb_devices.append(serial)
+                except Exception:
+                    pass
+
             if wanted and (wanted in usb_devices or wanted in ip_devices):
                 return ["-s", wanted]
             if usb_devices:
@@ -572,7 +610,14 @@ class ScrcpySessionManager:
             title = f"ii-phone-{type_str}-{session_id.replace(':', '_')}"
             cmd = ["scrcpy"] + resolved_target + ["--window-title=" + title] + args
 
+            sub_env = os.environ.copy()
+            preload = str(Path.home() / ".local" / "lib" / "libscrcpy_smooth_scroll.so")
+            if os.path.exists(preload):
+                existing = sub_env.get("LD_PRELOAD", "")
+                sub_env["LD_PRELOAD"] = f"{preload}:{existing}" if existing else preload
+
             proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
+                                    env=sub_env,
                                     preexec_fn=_default_sigint)
             with self.lock:
                 self.processes[session_id] = proc

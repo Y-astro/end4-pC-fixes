@@ -27,6 +27,13 @@ Singleton {
     }
 
     Timer {
+        id: startupDelayTimer
+        interval: 20000
+        running: Config.ready && Config.options.updates.enableCheck && root.available
+        onTriggered: root.refresh()
+    }
+
+    Timer {
         interval: Config.options.updates.checkInterval * 60 * 1000
         repeat: true
         running: Config.ready && Config.options.updates.enableCheck
@@ -42,16 +49,18 @@ Singleton {
         command: ["which", "checkupdates"]
         onExited: (exitCode, exitStatus) => {
             root.available = (exitCode === 0);
-            root.refresh();
+            if (root.available && !startupDelayTimer.running) {
+                startupDelayTimer.restart();
+            }
         }
     }
 
     Process {
         id: checkUpdatesProc
-        command: ["bash", "-c", "pacman=$(checkupdates 2>/dev/null | wc -l); aur=$(yay -Qua 2>/dev/null | wc -l || paru -Qua 2>/dev/null | wc -l || echo 0); echo $((pacman + aur))"]
+        command: ["bash", "-c", "pacman=$(timeout 8 checkupdates 2>/dev/null | wc -l); aur=$(timeout 8 yay -Qua 2>/dev/null | wc -l || timeout 8 paru -Qua 2>/dev/null | wc -l || echo 0); echo $((pacman + aur))"]
         stdout: StdioCollector {
             onStreamFinished: {
-                root.count = parseInt(text.trim())
+                root.count = parseInt(text.trim()) || 0
             }
         }
     }

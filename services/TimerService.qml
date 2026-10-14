@@ -9,7 +9,7 @@ import Quickshell.Io
 import QtQuick
 
 /**
- * Simple Pomodoro time manager.
+ * Timer and stopwatch manager. Legacy Pomodoro names are retained for existing callers.
  */
 Singleton {
     id: root
@@ -20,11 +20,11 @@ Singleton {
     property int cyclesBeforeLongBreak: Config.options.time.pomodoro.cyclesBeforeLongBreak
 
     property bool pomodoroRunning: Persistent.states.timer.pomodoro.running
-    property bool pomodoroBreak: Persistent.states.timer.pomodoro.isBreak
-    property bool pomodoroLongBreak: Persistent.states.timer.pomodoro.isBreak && (pomodoroCycle + 1 == cyclesBeforeLongBreak);
-    property int pomodoroLapDuration: pomodoroLongBreak ? longBreakTime : pomodoroBreak ? breakTime : focusTime // This is a binding that's to be kept
+    readonly property bool pomodoroBreak: false
+    readonly property bool pomodoroLongBreak: false
+    readonly property int pomodoroLapDuration: focusTime
     property int pomodoroSecondsLeft: pomodoroLapDuration // Reasonable init value, to be changed
-    property int pomodoroCycle: Persistent.states.timer.pomodoro.cycle
+    readonly property int pomodoroCycle: 0
 
     property bool stopwatchRunning: Persistent.states.timer.stopwatch.running
     property int stopwatchTime: 0
@@ -39,6 +39,11 @@ Singleton {
 
     // General
     Component.onCompleted: {
+        // Discard an old automatic break when upgrading to the one-shot timer.
+        if (Persistent.states.timer.pomodoro.isBreak)
+            resetPomodoro();
+        Persistent.states.timer.pomodoro.isBreak = false;
+        Persistent.states.timer.pomodoro.cycle = 0;
         if (!stopwatchRunning)
             stopwatchReset();
         if (!countdownRunning)
@@ -60,35 +65,24 @@ Singleton {
         return `${m}:${sec.toString().padStart(2, "0")}`;
     }
 
-    // Pomodoro
+    // One quiet, short ding for both timer completion paths. Keep playback
+    // independent of the legacy alarm toggle so completion is audible by default.
+    function notifyTimerFinished(message) {
+        Quickshell.execDetached(["notify-send", "Timer", message, "-a", "Shell",
+            "--urgency=normal", "--hint=boolean:suppress-sound:true"]);
+        Quickshell.execDetached(["pw-play", "--volume=0.35",
+            Qt.resolvedUrl("../assets/sounds/timer-ding.wav").toString().replace("file://", "")]);
+    }
+
+    // One-shot timer. Keep the API names compatible with existing shell widgets.
     function refreshPomodoro() {
-        // Work <-> break ?
-        if (getCurrentTimeInSeconds() >= Persistent.states.timer.pomodoro.start + pomodoroLapDuration) {
-            // Reset counts
-            Persistent.states.timer.pomodoro.isBreak = !Persistent.states.timer.pomodoro.isBreak;
-            Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds();
-
-            // Send notification
-            let notificationMessage;
-            if (Persistent.states.timer.pomodoro.isBreak && (pomodoroCycle + 1 == cyclesBeforeLongBreak)) {
-                notificationMessage = Translation.tr(`🌿 Long break: %1 minutes`).arg(Math.floor(longBreakTime / 60));
-            } else if (Persistent.states.timer.pomodoro.isBreak) {
-                notificationMessage = Translation.tr(`☕ Break: %1 minutes`).arg(Math.floor(breakTime / 60));
-            } else {
-                notificationMessage = Translation.tr(`🔴 Focus: %1 minutes`).arg(Math.floor(focusTime / 60));
-            }
-
-            Quickshell.execDetached(["notify-send", "Pomodoro", notificationMessage, "-a", "Shell"]);
-            if (Config.options.sounds.pomodoro) {
-                Audio.playSystemSound("alarm-clock-elapsed")
-            }
-
-            if (!pomodoroBreak) {
-                Persistent.states.timer.pomodoro.cycle = (Persistent.states.timer.pomodoro.cycle + 1) % root.cyclesBeforeLongBreak;
-            }
+        if (!Persistent.states.timer.pomodoro.running) return;
+        pomodoroSecondsLeft = Math.max(0, focusTime -
+            (getCurrentTimeInSeconds() - Persistent.states.timer.pomodoro.start));
+        if (pomodoroSecondsLeft === 0) {
+            Persistent.states.timer.pomodoro.running = false;
+            notifyTimerFinished(Translation.tr("Timer finished"));
         }
-
-        pomodoroSecondsLeft = pomodoroLapDuration - (getCurrentTimeInSeconds() - Persistent.states.timer.pomodoro.start);
     }
 
     Timer {
@@ -96,23 +90,33 @@ Singleton {
         interval: 200
         running: root.pomodoroRunning
         repeat: true
-        onTriggered: refreshPomodoro()
+        onTriggered: root.refreshPomodoro()
+    }
+
+    function setTimerDuration(seconds) {
+        if (pomodoroRunning) return;
+        Config.options.time.pomodoro.focus = Math.max(0, Math.min(86399, Math.round(seconds)));
+        pomodoroSecondsLeft = focusTime;
     }
 
     function togglePomodoro() {
-        Persistent.states.timer.pomodoro.running = !pomodoroRunning;
-        if (Persistent.states.timer.pomodoro.running) {
-            // Start/Resume
-            Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds() + pomodoroSecondsLeft - pomodoroLapDuration;
+        if (pomodoroRunning) {
+            refreshPomodoro();
+            Persistent.states.timer.pomodoro.running = false;
+            return;
         }
+        if (focusTime <= 0) return;
+        if (pomodoroSecondsLeft <= 0) pomodoroSecondsLeft = focusTime;
+        Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds() + pomodoroSecondsLeft - focusTime;
+        Persistent.states.timer.pomodoro.running = true;
     }
 
     function resetPomodoro() {
         Persistent.states.timer.pomodoro.running = false;
         Persistent.states.timer.pomodoro.isBreak = false;
-        Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds();
         Persistent.states.timer.pomodoro.cycle = 0;
-        refreshPomodoro();
+        Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds();
+        pomodoroSecondsLeft = focusTime;
     }
 
     // Stopwatch
@@ -166,10 +170,7 @@ Singleton {
             left = 0;
             Persistent.states.timer.countdown.running = false;
             Persistent.states.timer.countdown.duration = 0;
-            Quickshell.execDetached(["notify-send", "Timers", "⏰ Countdown finished", "-a", "Shell"]);
-            if (Config.options.sounds.pomodoro) {
-                Audio.playSystemSound("alarm-clock-elapsed")
-            }
+            notifyTimerFinished(Translation.tr("Countdown finished"));
         }
 
         countdownSecondsLeft = left;

@@ -50,6 +50,7 @@ ShellRoot {
         Updates.load()
         LyricsService.restartLyrics()
         KdeConnectService.load()
+        PresetStore.ensureLoaded()
     }
 
     Loader {

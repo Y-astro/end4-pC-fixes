@@ -66,6 +66,10 @@ Singleton {
         onTriggered: () => {
             const index = root.list.findIndex((notif) => notif.notificationId === notificationId);
             const notifObject = root.list[index];
+            if (!notifObject) {
+                destroy();
+                return;
+            }
             print("[Notifications] Notification timer triggered for ID: " + notificationId + ", transient: " + notifObject?.isTransient);
             if (notifObject.isTransient) root.discardNotification(notificationId);
             else root.timeoutNotification(notificationId);
@@ -74,6 +78,7 @@ Singleton {
     }
 
     property bool silent: false
+    property bool effectiveSilent: silent
     property int unread: 0
     property var filePath: Directories.notificationsPath
     property list<Notif> list: []
@@ -258,6 +263,37 @@ Singleton {
 
     function triggerListChange() {
         root.list = root.list.slice(0)
+    }
+
+    function publishInternalNotification(params) {
+        if (!params) return -1;
+        if (root.effectiveSilent) return -1;
+        root.idOffset++;
+        const id = root.idOffset;
+        const newNotifObject = notifComponent.createObject(root, {
+            "notificationId": id,
+            "appName": params.appName ?? "",
+            "appIcon": params.appIcon ?? "",
+            "summary": params.summary ?? "",
+            "body": params.body ?? "",
+            "image": params.image ?? "",
+            "urgency": params.urgency ?? "normal",
+            "actions": params.actions ?? [],
+            "time": Date.now(),
+        });
+        root.list = [...root.list, newNotifObject];
+
+        if (!root.popupInhibited) {
+            newNotifObject.popup = true;
+            newNotifObject.timer = notifTimerComponent.createObject(root, {
+                "notificationId": id,
+                "interval": params.expireTimeout ?? (Config?.options.notifications.timeout ?? 7000),
+            });
+            root.unread++;
+        }
+        root.notify(newNotifObject);
+        notifFileView.setText(stringifyList(root.list));
+        return id;
     }
 
     function refresh() {

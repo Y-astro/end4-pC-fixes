@@ -26,9 +26,8 @@ Item {
     readonly property real preferredExpandedHeight: 108
 
     // 0 is "unknown" (offline, rate-limited, not a GitHub remote), not "level".
-    readonly property int behind: ShellUpdates.commitsBehind
-    readonly property string target: "%1 · %2".arg(ShellUpdates.forkLabel(ShellUpdates.activeFork))
-        .arg(ShellUpdates.activeBranch)
+    readonly property int behind: 0
+    readonly property string target: ""
     readonly property string headline: root.behind > 0
         ? (root.behind === 1 ? Translation.tr("1 new commit") : Translation.tr("%1 new commits").arg(root.behind))
         : Translation.tr("Update available")
@@ -125,8 +124,7 @@ Item {
             colBackgroundHover: Appearance.colors.colPrimaryHover
             colBackgroundActive: Appearance.colors.colPrimaryActive
             colRipple: Appearance.colors.colPrimaryActive
-            // The script asks in its terminal before it touches anything.
-            onClicked: ShellUpdates.launchUpdate()
+            onClicked: {}
 
             contentItem: Item {
                 Row {

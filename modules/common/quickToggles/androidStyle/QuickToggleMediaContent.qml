@@ -673,7 +673,7 @@ ClippingRectangle {
         onTriggered: root.player?.positionChanged()
     }
 
-    Component.onCompleted: LyricsService.initiliazeLyrics()
+    Component.onCompleted: LyricsService.restartLyrics()
 
     // Empty state: the same MaterialShape+icon placeholder language used by the
     // wifi/bluetooth dialogs, but laid out as one row instead of the dialogs'

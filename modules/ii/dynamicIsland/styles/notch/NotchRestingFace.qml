@@ -485,7 +485,7 @@ Item {
         MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: ShellUpdates.launchUpdate()
+            onClicked: {}
         }
     }
 

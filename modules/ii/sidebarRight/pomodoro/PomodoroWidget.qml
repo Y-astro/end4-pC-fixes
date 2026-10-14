@@ -8,7 +8,7 @@ import QtQuick.Layouts
 Item {
     id: root
     property var tabButtonList: [
-        {"name": Translation.tr("Pomodoro"), "icon": "search_activity"},
+        {"name": Translation.tr("Timer"), "icon": "search_activity"},
         {"name": Translation.tr("Stopwatch"), "icon": "timer"}
     ]
 
@@ -60,6 +60,7 @@ Item {
 
         SwipeView {
             id: swipeView
+            interactive: false
             Layout.topMargin: 10
             Layout.fillWidth: true
             Layout.fillHeight: true

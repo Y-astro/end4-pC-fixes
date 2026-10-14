@@ -103,7 +103,7 @@ Singleton {
         root._beganAt = Date.now();
         root._appliedAt = 0;
         root._serialAtBegin = Config.externalApplySerial;
-        root._paletteSerialAtBegin = MaterialThemeLoader.paletteSerial;
+        root._paletteSerialAtBegin = (typeof MaterialThemeLoader !== "undefined" && typeof MaterialThemeLoader.paletteSerial !== "undefined") ? MaterialThemeLoader.paletteSerial : 0;
         root.phase = "colors";
         GlobalStates.presetWorkDeferred = true;
         barOutTimer.restart();
@@ -141,11 +141,14 @@ Singleton {
         const sinceApply = now - root._appliedAt;
         if (now - root._beganAt < root.barOutMs)
             return false;
-        if (Config.applyingExternal || !PanelSchedule.idle)
+        if (Config.applyingExternal || (typeof PanelSchedule !== "undefined" && !PanelSchedule.idle))
             return false;
         if (Config.externalApplySerial === root._serialAtBegin && sinceApply < root.configWaitMs)
             return false;
-        return MaterialThemeLoader.paletteSerial !== root._paletteSerialAtBegin || sinceApply >= root.paletteWaitMs;
+        const paletteChanged = (typeof MaterialThemeLoader !== "undefined" && typeof MaterialThemeLoader.paletteSerial !== "undefined")
+            ? (MaterialThemeLoader.paletteSerial !== root._paletteSerialAtBegin)
+            : false;
+        return paletteChanged || sinceApply >= root.paletteWaitMs;
     }
 
     // Polls the hold. Its own tick gap doubles as a stall detector: deferred

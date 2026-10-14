@@ -422,14 +422,7 @@ Item {
                     visible: !TouchpadGestures.supported
                     Layout.fillWidth: true
                     materialIcon: "warning"
-                    text: Translation.tr("This machine's Hyprland config is older than this page, so nothing set here reaches the compositor. Install the Hyprland files that ship with the shell; the ones there now are backed up first.")
-
-                    RippleButtonWithIcon {
-                        materialIcon: "download"
-                        mainText: Translation.tr("Install Hyprland files")
-                        buttonRadius: Appearance.rounding.full
-                        onClicked: ShellUpdates.launchHyprInstall()
-                    }
+                    text: Translation.tr("This machine's Hyprland config is older than this page, so nothing set here reaches the compositor.")
                 }
 
                 ColumnLayout {

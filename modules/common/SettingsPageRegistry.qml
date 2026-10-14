@@ -393,13 +393,6 @@ Singleton {
             "aliases": ["Fingerprint", "Biometrics", "fprintd", "Fingerprint reader", "Lock blur", "Vignette", "Color wash", "Desaturate"]
         },
         {
-            "id": "about",
-            "name": "About & Updates",
-            "icon": "info",
-            "component": "modules/settings/configs/AboutConfig.qml",
-            "aliases": []
-        },
-        {
             "id": "profile",
             "name": "User Profile",
             "icon": "account_circle",
@@ -465,7 +458,7 @@ Singleton {
         {
             "id": "system",
             "name": "System",
-            "pageIds": ["displays", "hyprland", "network", "soundAlerts", "touchGestures", "power", "usageStats", "privacy", "about"]
+            "pageIds": ["displays", "hyprland", "network", "soundAlerts", "touchGestures", "power", "usageStats", "privacy"]
         }
     ]
 

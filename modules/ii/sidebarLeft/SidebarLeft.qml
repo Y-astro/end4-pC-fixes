@@ -62,14 +62,30 @@ Scope { // Scope
         else root.pin = !root.pin;
     }
 
+    function ensureContent() {
+        if (!root.sidebarContent) {
+            root.sidebarContent = contentComponent.createObject(null, {
+                "scopeRoot": root,
+            });
+            if (sidebarLoader.item && sidebarLoader.item.contentParent) {
+                sidebarLoader.item.contentParent.children = [root.sidebarContent];
+            }
+        }
+    }
+
     Component.onCompleted: {
-        root.sidebarContent = contentComponent.createObject(null, {
-            "scopeRoot": root,
-        });
-        sidebarLoader.item.contentParent.children = [root.sidebarContent];
+        if (GlobalStates.sidebarLeftOpen) root.ensureContent();
+    }
+
+    Connections {
+        target: GlobalStates
+        function onSidebarLeftOpenChanged() {
+            if (GlobalStates.sidebarLeftOpen) root.ensureContent();
+        }
     }
 
     onDetachChanged: {
+        root.ensureContent();
         if (root.detach) {
             GlobalFocusGrab.removeDismissable(sidebarLoader.item) // Remove sidebar from the focus grab system
             sidebarContent.parent = null; // Detach content from sidebar

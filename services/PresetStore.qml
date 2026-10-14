@@ -314,19 +314,10 @@ Singleton {
     // Apply and revert queue with the rest on purpose: applying a preset reads
     // the same files an install or a pull rewrites.
     function applyPreset(name) {
-        if (!name || root._pending("apply", name))
+        if (!name)
             return;
         root.recordRecent(name);
-        // Start the staged transition at the click — the earliest point, so the
-        // bar is already sliding off its edge by the time the reload lands.
-        PresetTransition.begin();
-        root._enqueue({
-            action: "apply",
-            name: name,
-            json: false,
-            guardsConfig: true,
-            command: [root.presetsScript, "load", name]
-        });
+        Presets.apply(name);
     }
 
     function revert() {
@@ -802,14 +793,16 @@ Singleton {
 
     function _holdConfigWrites() {
         configResume.stop();
-        Config.saveOptionsNow();
+        if (typeof Config.saveOptionsNow === "function")
+            Config.saveOptionsNow();
         Config.blockWrites = true;
         // The file about to appear was written against whichever schema the
         // preset was exported from, and the shell only migrates a file it
         // reads once per session. Re-arming that pass is what makes "migrate
         // up" true for a preset applied hours after startup, rather than only
         // at the next restart.
-        Config.configRepaired = false;
+        if (typeof Config.configRepaired !== "undefined")
+            Config.configRepaired = false;
     }
 
     function _releaseConfigWrites() {

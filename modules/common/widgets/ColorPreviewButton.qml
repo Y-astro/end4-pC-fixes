@@ -237,7 +237,7 @@ RippleButton {
     // wallpaper and the switch to or from Wallpaper Engine all land here.
     Connections {
         target: Wallpapers
-        function onEffectiveWallpaperPathChanged() {
+        function onChanged() {
             root.refetchColors();
         }
     }

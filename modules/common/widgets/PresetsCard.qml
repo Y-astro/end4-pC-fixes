@@ -14,6 +14,7 @@ Rectangle {
     property string imageSource: ""
     property string title: ""
     property string description: ""
+    property bool inUse: Presets.activePreset === root.title
     property var onApply: () => {}
     property var onRemove: () => {}
     property var onOverwrite: () => {}
@@ -23,8 +24,16 @@ Rectangle {
     implicitHeight: contentColumn.implicitHeight + 14
     radius: Appearance.rounding.normal
     color: Appearance.colors.colLayer1
-    border.width: 1
-    border.color: "transparent"
+    border.width: root.inUse ? 2 : 1
+    border.color: root.inUse ? Appearance.colors.colPrimary : Appearance.colors.colLayer0Border
+
+    Behavior on border.color {
+        ColorAnimation {
+            duration: Appearance.animation.elementMoveFast.duration
+            easing.type: Appearance.animation.elementMoveFast.type
+            easing.bezierCurve: Appearance.animation.elementMoveFast.bezierCurve
+        }
+    }
 
     ColumnLayout {
         id: contentColumn
@@ -37,10 +46,12 @@ Rectangle {
         spacing: 6
 
         // Header
-        RowLayout{
+        RowLayout {
             Layout.leftMargin: 10
-            Layout.topMargin: 6
+            Layout.rightMargin: 8
+            Layout.topMargin: 8
             spacing: 10
+
             MaterialShapeWrappedMaterialSymbol {
                 id: avatarShape
                 shape: MaterialShape.Shape.Circle 
@@ -48,20 +59,54 @@ Rectangle {
                 iconSize: Appearance.font.pixelSize.normal
                 implicitSize: 36
                 font: Appearance.font.family.main
-                color: Appearance.colors.colPrimaryContainer
-                colSymbol: Appearance.colors.colOnPrimaryContainer
+                color: root.inUse ? Appearance.colors.colPrimary : Appearance.colors.colPrimaryContainer
+                colSymbol: root.inUse ? Appearance.colors.colOnPrimary : Appearance.colors.colOnPrimaryContainer
                 Layout.alignment: Qt.AlignVCenter
             }
-            ColumnLayout{
-                spacing: -4
-                StyledText {
+
+            ColumnLayout {
+                spacing: -2
+                Layout.fillWidth: true
+
+                RowLayout {
+                    spacing: 6
                     Layout.fillWidth: true
-                    text: root.title
-                    font.pixelSize: Appearance.font.pixelSize.large
-                    font.weight: Font.DemiBold
-                    color: Appearance.colors.colOnLayer1
-                    elide: Text.ElideRight
-                    wrapMode: Text.NoWrap
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: root.title
+                        font.pixelSize: Appearance.font.pixelSize.large
+                        font.weight: Font.DemiBold
+                        color: Appearance.colors.colOnLayer1
+                        elide: Text.ElideRight
+                        wrapMode: Text.NoWrap
+                    }
+
+                    Rectangle {
+                        visible: root.inUse
+                        radius: Appearance.rounding.full
+                        color: Appearance.colors.colPrimaryContainer
+                        implicitHeight: 20
+                        implicitWidth: activeRow.implicitWidth + 10
+                        Layout.alignment: Qt.AlignVCenter
+
+                        RowLayout {
+                            id: activeRow
+                            anchors.centerIn: parent
+                            spacing: 3
+                            MaterialSymbol {
+                                text: "check"
+                                iconSize: 12
+                                color: Appearance.colors.colOnPrimaryContainer
+                            }
+                            StyledText {
+                                text: Translation.tr("Active")
+                                font.pixelSize: Appearance.font.pixelSize.smaller
+                                font.weight: Font.DemiBold
+                                color: Appearance.colors.colOnPrimaryContainer
+                            }
+                        }
+                    }
                 }
 
                 // Description
@@ -74,9 +119,9 @@ Rectangle {
                     elide: Text.ElideRight
                 }
             }
+
             Item {
                 Layout.alignment: Qt.AlignRight
-                Layout.rightMargin: 8
                 implicitWidth: 32
                 implicitHeight: 32
                 RippleButton {
@@ -106,7 +151,7 @@ Rectangle {
             }
         }
 
-        // Wall
+        // Wallpaper preview
         Rectangle {
             id: imageRect
             Layout.fillWidth: true
@@ -142,13 +187,19 @@ Rectangle {
                 iconSize: Appearance.font.pixelSize.huge
                 color: Appearance.colors.colSubtext
             }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.onApply()
+            }
         }
 
         // Buttons
         RowLayout {
             Layout.fillWidth: true
             Layout.rightMargin: 8
-            Layout.bottomMargin: -4
+            Layout.bottomMargin: 4
             spacing: 8
 
             Item { Layout.fillWidth: true }
@@ -165,11 +216,11 @@ Rectangle {
                 horizontalPadding: 14
                 verticalPadding: 8
                 colBackground: "transparent"
-                colBackgroundHover: ColorUtils.transparentize(Appearance.colors.colPrimaryContainerHover, 0.8)
-                colBackgroundActive: Appearance.colors.colPrimaryContainerActive
+                colBackgroundHover: ColorUtils.transparentize(Appearance.colors.colError, 0.8)
+                colBackgroundActive: Appearance.colors.colErrorActive
                 contentItem: StyledText {
-                    text: "Remove"
-                    color: Appearance.colors.colPrimary
+                    text: Translation.tr("Remove")
+                    color: Appearance.colors.colError
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
@@ -187,12 +238,12 @@ Rectangle {
                 implicitHeight: 36
                 horizontalPadding: 14
                 verticalPadding: 8
-                colBackground: Appearance.colors.colPrimaryContainer
-                colBackgroundHover: Appearance.colors.colPrimaryContainerHover
-                colBackgroundActive: Appearance.colors.colPrimaryContainerActive
+                colBackground: root.inUse ? Appearance.colors.colSecondaryContainer : Appearance.colors.colPrimaryContainer
+                colBackgroundHover: root.inUse ? Appearance.colors.colSecondaryContainerHover : Appearance.colors.colPrimaryContainerHover
+                colBackgroundActive: root.inUse ? Appearance.colors.colSecondaryContainerActive : Appearance.colors.colPrimaryContainerActive
                 contentItem: StyledText {
-                    text: "Apply"
-                    color: Appearance.colors.colOnPrimaryContainer
+                    text: root.inUse ? Translation.tr("Applied") : Translation.tr("Apply")
+                    color: root.inUse ? Appearance.colors.colOnSecondaryContainer : Appearance.colors.colOnPrimaryContainer
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }

@@ -16,6 +16,15 @@ Singleton {
     property alias onlineFolderModel: onlinePresetsFolderModel
     property alias importedFolderModel: importedPresetsFolderModel
 
+    property string activePreset: ""
+
+    FileView {
+        path: `${Directories.userPresetsPath}/.active`
+        watchChanges: true
+        onLoaded: root.activePreset = text().trim()
+        onFileChanged: reload()
+    }
+
     FolderListModel {
         id: presetsFolderModel
         folder: Qt.resolvedUrl(Directories.userPresetsPath)
@@ -109,17 +118,21 @@ Singleton {
         saveProc.running = true
     }
 
-    function apply(name) {
-        GlobalStates.settingsOpen = false
+    function apply(name, closeSettings = false) {
+        if (closeSettings)
+            GlobalStates.settingsOpen = false
         Wallpapers.confirmedPath = ""
         Wallpapers.previewPath = ""
+        root.activePreset = name
         Quickshell.execDetached(["bash", Directories.presetsScriptPath, "--apply", name])
     }
 
-    function applyOnline(name) {
-        GlobalStates.settingsOpen = false
+    function applyOnline(name, closeSettings = false) {
+        if (closeSettings)
+            GlobalStates.settingsOpen = false
         Wallpapers.confirmedPath = ""
         Wallpapers.previewPath = ""
+        root.activePreset = name
         Quickshell.execDetached(["bash", Directories.presetsScriptPath, "--apply", name, "--online"])
     }
 
@@ -138,15 +151,16 @@ Singleton {
         deleteImportedProc.running = true
     }
 
-    function applyImported(name) {
-        GlobalStates.settingsOpen = false
+    function applyImported(name, closeSettings = false) {
+        if (closeSettings)
+            GlobalStates.settingsOpen = false
         Wallpapers.confirmedPath = ""
         Wallpapers.previewPath = ""
+        root.activePreset = name
         Quickshell.execDetached(["bash", Directories.presetsScriptPath, "--apply", name, "--imported"])
     }
 
     function overwrite(name) {
-        // Overwrite with same name (presets.sh --save filters General+Services)
         overwriteProc.command = ["bash", Directories.presetsScriptPath, "--save", name]
         overwriteProc.running = true
     }

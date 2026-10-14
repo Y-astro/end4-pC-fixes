@@ -11,6 +11,10 @@ pragma ComponentBehavior: Bound
 Singleton {
     id: root
     signal requestBluetoothDialog()
+    property bool presetBarHidden: false
+    property bool presetRecoloring: false
+    property bool presetHoldMotion: false
+    property bool presetWorkDeferred: false
     property bool barOpen: true
     property bool crosshairOpen: false
     property bool equalizerOpen: false
@@ -59,6 +63,13 @@ Singleton {
     property bool superReleaseMightTrigger: true
     property bool wallpaperSelectorOpen: false
     property bool workspaceShowNumbers: false
+    property bool cheatsheetOpen: false
+    property bool notesAppOpen: false
+    property bool clockAppOpen: false
+    property bool usageOpen: false
+    property bool modesOpen: false
+    property bool editMode: false
+    property bool islandDashboardOpen: false
 
     function captureSearchTargetWindow(): void {
         let rawAddress = String(ToplevelManager?.activeToplevel?.HyprlandToplevel?.address ?? "").trim();

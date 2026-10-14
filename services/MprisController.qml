@@ -167,6 +167,21 @@ Singleton {
 		this.trackedPlayer = targetPlayer;
 	}
 
+	function hasTrackLength(player): bool {
+		return (player?.length ?? 0) > 0;
+	}
+
+	function trackProgressOf(player): real {
+		if (!player || (player.length ?? 0) <= 0) return 0;
+		return Math.max(0, Math.min(1, (player.position ?? 0) / player.length));
+	}
+
+	function seekFraction(player, fraction: real): void {
+		if (player && (player.length ?? 0) > 0 && player.canSeek) {
+			player.position = Math.round(fraction * player.length);
+		}
+	}
+
 	IpcHandler {
 		target: "mpris"
 

@@ -15,6 +15,19 @@ Singleton {
     property bool configMalformed: false
     property string configHealthState: "ok"
     property list<string> configHealthKeys: []
+    readonly property int currentConfigVersion: 29
+    property bool configRepaired: false
+    property int externalApplySerial: 0
+    property bool applyingExternal: false
+
+    function saveOptionsNow() {
+        if (root.configMalformed)
+            return;
+        root.blockWrites = false;
+        if (!root.ready)
+            return;
+        configFileView.writeAdapter();
+    }
 
     function setNestedValue(nestedKey, value) {
         let keys = nestedKey.split(".");
@@ -81,6 +94,7 @@ Singleton {
         JsonAdapter {
             id: configOptionsJsonAdapter
 
+            property int configVersion: 0
             property string panelFamily: "ii" // "ii", "waffle"
 
             property JsonObject userProfile: JsonObject {
@@ -1073,7 +1087,7 @@ Singleton {
                 property bool bottomGroup: true
                 property bool mediaPlayer: false
                 property string bannerImage: ""
-                property bool keepRightSidebarLoaded: true
+                property bool keepRightSidebarLoaded: false
                 property JsonObject translator: JsonObject {
                     property bool enable: false
                     property int delay: 300 // Delay before sending request. Reduces (potential) rate limits and lag.

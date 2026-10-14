@@ -2010,7 +2010,8 @@ StyledPopup {
                     }
                     StyledText {
                         id: diskUsage
-                        text: (ResourceUsage.diskUsed / (1024 * 1024 * 1024)).toFixed(1) + " GB / " + (ResourceUsage.diskTotal / (1024 * 1024 * 1024)).toFixed(0) + " GB"
+                        text: (ResourceUsage.diskUsedBytes / (1024 * 1024 * 1024)).toFixed(1) + " GB / "
+                            + (ResourceUsage.diskTotalBytes / (1024 * 1024 * 1024)).toFixed(0) + " GB"
                         font.pixelSize: Appearance.font.pixelSize.normal
                         font.weight: Font.DemiBold
                         color: Appearance.colors.colOnSecondaryContainer

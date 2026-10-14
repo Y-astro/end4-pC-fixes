@@ -81,8 +81,8 @@ QtObject {
                 percent: root.percent(ResourceUsage.swapUsedPercentage)
             },
             disk: {
-                usedGiB: root.gigabytesFromBytes(ResourceUsage.diskUsed),
-                totalGiB: root.gigabytesFromBytes(ResourceUsage.diskTotal),
+                usedGiB: root.gigabytesFromBytes(ResourceUsage.diskUsedBytes),
+                totalGiB: root.gigabytesFromBytes(ResourceUsage.diskTotalBytes),
                 percent: root.percent(ResourceUsage.diskUsedPercentage)
             },
             topProcesses: processes

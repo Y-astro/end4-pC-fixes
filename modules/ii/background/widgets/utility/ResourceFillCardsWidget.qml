@@ -159,8 +159,8 @@ AbstractBackgroundWidget {
                             return `${ramUsedGb} / ${ramTotalGb} GB`;
                         }
                         if (modelData === "disk") {
-                            let diskUsedGb = (ResourceUsage.diskUsed / (1024 * 1024 * 1024)).toFixed(0);
-                            let diskTotalGb = (ResourceUsage.diskTotal / (1024 * 1024 * 1024)).toFixed(0);
+                            let diskUsedGb = (ResourceUsage.diskUsedBytes / (1024 * 1024 * 1024)).toFixed(0);
+                            let diskTotalGb = (ResourceUsage.diskTotalBytes / (1024 * 1024 * 1024)).toFixed(0);
                             return `${diskUsedGb} / ${diskTotalGb} GB`;
                         }
                         return "";

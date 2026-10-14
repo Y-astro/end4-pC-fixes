@@ -31,6 +31,19 @@ Item {
     readonly property bool onThisScreen: Config.options.background.screenList.length === 0
         || Config.options.background.screenList.includes(root.screen.name)
 
+    // Registry additions are independent of the established singleton layout.
+    Repeater {
+        model: Config.options.background.activeWidgets ?? []
+        delegate: RegistryWidgetDelegate {
+            required property var modelData
+            instance: modelData
+            screen: root.screen
+            wallpaperItem: root.wallpaperItem
+            wallpaperSafetyTriggered: root.wallpaperSafetyTriggered
+            visible: root.onThisScreen || GlobalStates.screenLocked
+        }
+    }
+
     Repeater {
         model: [
             { key: "visualizer" },

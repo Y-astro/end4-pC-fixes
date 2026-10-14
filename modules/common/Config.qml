@@ -321,6 +321,10 @@ Singleton {
         return entries;
     }
 
+    function countWidgetInstances(widgetId) {
+        return (root.options?.background?.activeWidgets ?? []).filter(w => w.widgetId === widgetId).length;
+    }
+
     function saveOptionsNow() {
         if (root.configMalformed)
             return;
@@ -3331,12 +3335,12 @@ Singleton {
                         property bool enable: false
                         property string placementStrategy: "free"
                         property real x: 400
+                        property real z: 0
                         property real y: 120
                         property int widgetSize: 100
-                        property string backend: "kdeconnect"
+                        property string backend: "adb"
                         property string kdeDevice: ""
-                        property string localsendIp: ""
-                        property string localsendAlias: ""
+                        property string destination: "/sdcard/Download"
                     }
                     property JsonObject session_grid: JsonObject {
                         property bool enable: false

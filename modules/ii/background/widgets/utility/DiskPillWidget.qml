@@ -41,8 +41,8 @@ AbstractBackgroundWidget {
     implicitHeight: 60 * contentScale
 
     readonly property real diskUsagePct: ResourceUsage.diskUsedPercentage
-    readonly property string diskUsedGb: (ResourceUsage.diskUsed / (1024 * 1024 * 1024)).toFixed(0)
-    readonly property string diskTotalGb: (ResourceUsage.diskTotal / (1024 * 1024 * 1024)).toFixed(0)
+    readonly property string diskUsedGb: (ResourceUsage.diskUsedBytes / (1024 * 1024 * 1024)).toFixed(0)
+    readonly property string diskTotalGb: (ResourceUsage.diskTotalBytes / (1024 * 1024 * 1024)).toFixed(0)
     property bool _diskMetricRequested: false
 
     function syncDiskMetricRequest() {

@@ -145,6 +145,14 @@ Singleton {
             ]
         },
         {
+            id: "network_speed",
+            icon: "network_check",
+            title: "Network speed",
+            styleConfigKey: "networkSpeed",
+            styleOptions: defaultStyleOptions,
+            configPage: "NetworkSpeedConfig.qml"
+        },
+        {
             id: "system_monitor",
             icon: "monitor_heart",
             title: "System monitor",

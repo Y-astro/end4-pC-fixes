@@ -803,6 +803,340 @@ Singleton {
             "description": Translation.tr("Nothing OS styled 1x0.5 RAM memory widget with segmented progress bar and Ndot font."),
             "configPage": ""
         },
+
+        {
+            "widgetId": "clock_ios_tile",
+            "name": Translation.tr("iOS Tile Clock"),
+            "category": "Clock",
+            "qmlPath": Qt.resolvedUrl("clock/IosTileClockWidget.qml"),
+            "icon": "schedule",
+            "description": Translation.tr("An iOS small-widget clock: condensed heavy digits and a minute track that follows the card's rounded outline."),
+            "configPage": "widgets/DesktopIosTileClockConfig.qml"
+        },
+        {
+            "widgetId": "clock_ios_analog",
+            "name": Translation.tr("iOS Analog Clock"),
+            "category": "Clock",
+            "qmlPath": Qt.resolvedUrl("clock/IosAnalogClockWidget.qml"),
+            "icon": "schedule",
+            "description": Translation.tr("An iOS analog widget with an inner dial, bar indices and Apple-style hands."),
+            "configPage": "widgets/DesktopIosAnalogClockConfig.qml"
+        },
+        {
+            "widgetId": "clock_california",
+            "name": Translation.tr("California Clock"),
+            "category": "Clock",
+            "qmlPath": Qt.resolvedUrl("clock/CaliforniaClockWidget.qml"),
+            "icon": "schedule",
+            "description": Translation.tr("Apple Watch California dial in its full-screen cut: Roman and Arabic numerals hugging the card's rounded outline, with an accent second hand."),
+            "configPage": "widgets/DesktopCaliforniaClockConfig.qml"
+        },
+        {
+            "widgetId": "clock_type_weight",
+            "name": Translation.tr("Weight Clock (1x1)"),
+            "category": "Clock",
+            "qmlPath": Qt.resolvedUrl("clock/WeightClockWidget.qml"),
+            "icon": "schedule",
+            "description": Translation.tr("1x1 type clock: heavy hours over minutes whose weight follows the hour, from a hairline at :00 to heavy at :59."),
+            "configPage": "widgets/DesktopTypeClocksConfig.qml"
+        },
+        {
+            "widgetId": "clock_type_width",
+            "name": Translation.tr("Width Clock (2x1)"),
+            "category": "Clock",
+            "qmlPath": Qt.resolvedUrl("clock/WidthClockWidget.qml"),
+            "icon": "schedule",
+            "description": Translation.tr("2x1 type clock: the time on one line whose width axis trades from the hours to the minutes as the hour passes."),
+            "configPage": "widgets/DesktopTypeClocksConfig.qml"
+        },
+        {
+            "widgetId": "clock_type_stack",
+            "name": Translation.tr("Stack Clock (1x2)"),
+            "category": "Clock",
+            "qmlPath": Qt.resolvedUrl("clock/StackClockWidget.qml"),
+            "icon": "schedule",
+            "description": Translation.tr("1x2 type clock: the four digits stacked wide with a weight ramp, split by a band with the day."),
+            "configPage": "widgets/DesktopTypeClocksConfig.qml"
+        },
+        {
+            "widgetId": "clock_numeral",
+            "name": Translation.tr("Numeral Clock (1x1)"),
+            "category": "Clock",
+            "qmlPath": Qt.resolvedUrl("clock/NumeralClockWidget.qml"),
+            "icon": "schedule",
+            "description": Translation.tr("1x1 analog clock without an hour hand: the numerals are the dial, heavy and large near the hour, hairline far from it."),
+            "configPage": "widgets/DesktopAnalogClocksConfig.qml"
+        },
+        {
+            "widgetId": "clock_duo",
+            "name": Translation.tr("Duo Clock (2x1)"),
+            "category": "Clock",
+            "qmlPath": Qt.resolvedUrl("clock/DuoClockWidget.qml"),
+            "icon": "schedule",
+            "description": Translation.tr("2x1 analog clock with two sub-dials: hours on a cookie with a thick hand, minutes on a wavy progress ring."),
+            "configPage": "widgets/DesktopAnalogClocksConfig.qml"
+        },
+        {
+            "widgetId": "calendar_date_stack",
+            "name": Translation.tr("Date Stack (1x1)"),
+            "category": "Date",
+            "qmlPath": Qt.resolvedUrl("DateWidget/DateStackWidget.qml"),
+            "icon": "today",
+            "description": Translation.tr("1x1 date: the day of the month, tall and condensed, on a morphing cookie, with the weekday and a month chip."),
+            "configPage": "widgets/DesktopCalendarStylesConfig.qml"
+        },
+        {
+            "widgetId": "calendar_date_banner",
+            "name": Translation.tr("Date Banner (2x1)"),
+            "category": "Date",
+            "qmlPath": Qt.resolvedUrl("DateWidget/DateBannerWidget.qml"),
+            "icon": "event_note",
+            "description": Translation.tr("2x1 editorial date: the weekday as a headline over a fact sheet with date, week, day of the year and the next event."),
+            "configPage": "widgets/DesktopCalendarStylesConfig.qml"
+        },
+        {
+            "widgetId": "calendar_week_strip",
+            "name": Translation.tr("Week Strip (2x0.5)"),
+            "category": "Date",
+            "qmlPath": Qt.resolvedUrl("DateWidget/WeekStripWidget.qml"),
+            "icon": "view_week",
+            "description": Translation.tr("2x0.5 strip of this week's days as chips, today wide and filled, with event dots."),
+            "configPage": "widgets/DesktopCalendarStylesConfig.qml"
+        },
+        {
+            "widgetId": "calendar_week_agenda",
+            "name": Translation.tr("Week Agenda (2x2)"),
+            "category": "Date",
+            "qmlPath": Qt.resolvedUrl("DateWidget/WeekAgendaWidget.qml"),
+            "icon": "calendar_view_week",
+            "description": Translation.tr("2x2 week agenda: one row per day with a condensed date block and the day's events as chips."),
+            "configPage": "widgets/DesktopCalendarStylesConfig.qml"
+        },
+        {
+            "widgetId": "calendar_month_tall",
+            "name": Translation.tr("Month Tall (1x2)"),
+            "category": "Date",
+            "qmlPath": Qt.resolvedUrl("DateWidget/MonthTallWidget.qml"),
+            "icon": "calendar_month",
+            "description": Translation.tr("1x2 month: the month's name huge on top and the month grid below, today as a sunny shape."),
+            "configPage": "widgets/DesktopCalendarStylesConfig.qml"
+        },
+        {
+            "widgetId": "calendar_date_type",
+            "name": Translation.tr("Date Type (2x1)"),
+            "category": "Date",
+            "qmlPath": Qt.resolvedUrl("DateWidget/DateTypeWidget.qml"),
+            "icon": "text_fields",
+            "description": Translation.tr("2x1 text-only date: the weekday set with a weight and width ramp across its letters, framed by small monospace and italic lines."),
+            "configPage": "widgets/DesktopCalendarStylesConfig.qml"
+        },
+        {
+            "widgetId": "calendar_date_shapes",
+            "name": Translation.tr("Date Shapes (2x1)"),
+            "category": "Date",
+            "qmlPath": Qt.resolvedUrl("DateWidget/DateShapesWidget.qml"),
+            "icon": "interests",
+            "description": Translation.tr("2x1 expressive date: a heavy weekday, the month on a chip, the day on a big shape off the corner and the week as seven little shapes."),
+            "configPage": "widgets/DesktopCalendarStylesConfig.qml"
+        },
+        {
+            "widgetId": "photo_plain_1x1",
+            "name": Translation.tr("Plain Photo (1x1)"),
+            "category": "Photo",
+            "qmlPath": Qt.resolvedUrl("photo/PlainPhoto1x1Widget.qml"),
+            "icon": "image",
+            "description": Translation.tr("1x1 photo filling a rounded rectangle: no border, no text."),
+            "configPage": "widgets/DesktopPlainPhoto1x1Config.qml"
+        },
+        {
+            "widgetId": "photo_plain_2x1",
+            "name": Translation.tr("Plain Photo (2x1)"),
+            "category": "Photo",
+            "qmlPath": Qt.resolvedUrl("photo/PlainPhoto2x1Widget.qml"),
+            "icon": "image",
+            "description": Translation.tr("2x1 photo filling a rounded rectangle: no border, no text."),
+            "configPage": "widgets/DesktopPlainPhoto2x1Config.qml"
+        },
+        {
+            "widgetId": "photo_plain_1x2",
+            "name": Translation.tr("Plain Photo (1x2)"),
+            "category": "Photo",
+            "qmlPath": Qt.resolvedUrl("photo/PlainPhoto1x2Widget.qml"),
+            "icon": "image",
+            "description": Translation.tr("1x2 photo filling a rounded rectangle: no border, no text."),
+            "configPage": "widgets/DesktopPlainPhoto1x2Config.qml"
+        },
+        {
+            "widgetId": "media_poster",
+            "name": Translation.tr("Poster Media (1x2)"),
+            "category": "Media",
+            "qmlPath": Qt.resolvedUrl("media/PosterMediaWidget.qml"),
+            "icon": "queue_music",
+            "description": Translation.tr("Tall 1x2 player: the cover cut to a Material shape, a big condensed title and a block of chunky transport controls."),
+            "configPage": "widgets/DesktopMediaPlayersConfig.qml"
+        },
+        {
+            "widgetId": "media_deck",
+            "name": Translation.tr("Deck Media (2x1)"),
+            "category": "Media",
+            "qmlPath": Qt.resolvedUrl("media/DeckMediaWidget.qml"),
+            "icon": "album",
+            "description": Translation.tr("Wide 2x1 player: a cover slab with the player tag, title and artist, an inline wavy seek line and a wide play key."),
+            "configPage": "widgets/DesktopMediaPlayersConfig.qml"
+        },
+        {
+            "widgetId": "media_halo",
+            "name": Translation.tr("Halo Media (1x1)"),
+            "category": "Media",
+            "qmlPath": Qt.resolvedUrl("media/HaloMediaWidget.qml"),
+            "icon": "motion_photos_on",
+            "description": Translation.tr("Square 1x1 player: the cover inside a wavy progress ring that morphs while music plays, with play and next keys."),
+            "configPage": "widgets/DesktopMediaPlayersConfig.qml"
+        },
+        {
+            "widgetId": "media_cover",
+            "name": Translation.tr("Cover Media (1x2)"),
+            "category": "Media",
+            "qmlPath": Qt.resolvedUrl("media/CoverMediaWidget.qml"),
+            "icon": "photo_album",
+            "description": Translation.tr("Tall 1x2 player covered by the album art: a wide expressive title on top and the controls on a blurred band at the bottom."),
+            "configPage": "widgets/DesktopMediaPlayersConfig.qml"
+        },
+        {
+            "widgetId": "todo_focus",
+            "name": Translation.tr("To-Do Focus (1x1)"),
+            "category": "Utility",
+            "qmlPath": Qt.resolvedUrl("productivity/TodoFocusWidget.qml"),
+            "icon": "task_alt",
+            "description": Translation.tr("1x1 to-do that shows one open task at a time in big type, with keys to complete it or pass to the next."),
+            "configPage": "widgets/DesktopTodoWidgetsConfig.qml"
+        },
+        {
+            "widgetId": "todo_board",
+            "name": Translation.tr("To-Do Board (2x1)"),
+            "category": "Utility",
+            "qmlPath": Qt.resolvedUrl("productivity/TodoBoardWidget.qml"),
+            "icon": "checklist",
+            "description": Translation.tr("2x1 to-do with the open count on a slab and a checkable list with a field to add tasks."),
+            "configPage": "widgets/DesktopTodoWidgetsConfig.qml"
+        },
+        {
+            "widgetId": "todo_column",
+            "name": Translation.tr("To-Do Column (1x2)"),
+            "category": "Utility",
+            "qmlPath": Qt.resolvedUrl("productivity/TodoColumnWidget.qml"),
+            "icon": "list_alt",
+            "description": Translation.tr("1x2 to-do list with today's progress as segments, checkable tasks with due days and an add field."),
+            "configPage": "widgets/DesktopTodoWidgetsConfig.qml"
+        },
+        {
+            "widgetId": "timer_pomodoro",
+            "name": Translation.tr("Pomodoro (1x1)"),
+            "category": "Utility",
+            "qmlPath": Qt.resolvedUrl("productivity/PomodoroWidget.qml"),
+            "icon": "timer",
+            "description": Translation.tr("1x1 pomodoro with the phase's wavy ring, turning phase shape, cycle dots and start, reset and skip keys."),
+            "configPage": "widgets/DesktopTimerWidgetsConfig.qml"
+        },
+        {
+            "widgetId": "timer_stopwatch",
+            "name": Translation.tr("Stopwatch (1x1)"),
+            "category": "Utility",
+            "qmlPath": Qt.resolvedUrl("productivity/StopwatchWidget.qml"),
+            "icon": "timer_play",
+            "description": Translation.tr("1x1 stopwatch with tall digits and a scalloped start key that turns with the elapsed time; lap and reset."),
+            "configPage": "widgets/DesktopTimerWidgetsConfig.qml"
+        },
+        {
+            "widgetId": "timer_countdown",
+            "name": Translation.tr("Countdown (1x1)"),
+            "category": "Utility",
+            "qmlPath": Qt.resolvedUrl("productivity/CountdownWidget.qml"),
+            "icon": "hourglass_bottom",
+            "description": Translation.tr("1x1 timer whose card drains like an hourglass, with pause, +1:00 and quick-start presets."),
+            "configPage": "widgets/DesktopTimerWidgetsConfig.qml"
+        },
+        {
+            "widgetId": "translator_widget",
+            "name": Translation.tr("Translator (1x2)"),
+            "category": "Utility",
+            "qmlPath": Qt.resolvedUrl("productivity/TranslatorWidget.qml"),
+            "icon": "translate",
+            "description": Translation.tr("1x2 translator with the sidebar's engine: language pair with a swap hinge, typed or pasted text, copy and listen."),
+            "configPage": "widgets/DesktopTranslatorWidgetConfig.qml"
+        },
+        {
+            "widgetId": "water_glass",
+            "name": Translation.tr("Water Glass (2x1)"),
+            "category": "Utility",
+            "qmlPath": Qt.resolvedUrl("productivity/WaterGlassWidget.qml"),
+            "icon": "water_full",
+            "description": Translation.tr("2x1 hydration tracker on the Water Reminder's counter: a glass that fills, the week as bars, add and take back."),
+            "configPage": "widgets/DesktopWaterGlassConfig.qml"
+        },
+        {
+            "widgetId": "phone_key",
+            "name": Translation.tr("Phone Key (1x1)"),
+            "category": "Devices",
+            "qmlPath": Qt.resolvedUrl("phone/PhoneKeyWidget.qml"),
+            "icon": "cast",
+            "description": Translation.tr("1x1 phone mirror key (scrcpy) with battery and keys to send a file or the clipboard over KDE Connect."),
+            "configPage": "widgets/DesktopPhoneWidgetsConfig.qml"
+        },
+        {
+            "widgetId": "phone_deck",
+            "name": Translation.tr("Phone Deck (2x1)"),
+            "category": "Devices",
+            "qmlPath": Qt.resolvedUrl("phone/PhoneDeckWidget.qml"),
+            "icon": "phone_android",
+            "description": Translation.tr("2x1 phone card with its picture, battery cells and a button group: mirror, send file, send clipboard."),
+            "configPage": "widgets/DesktopPhoneWidgetsConfig.qml"
+        },
+        {
+            "widgetId": "phone_tower",
+            "name": Translation.tr("Phone Tower (1x2)"),
+            "category": "Devices",
+            "qmlPath": Qt.resolvedUrl("phone/PhoneTowerWidget.qml"),
+            "icon": "smartphone",
+            "description": Translation.tr("1x2 phone at full height with its battery badge and a grouped list: mirror, send file, send clipboard."),
+            "configPage": "widgets/DesktopPhoneWidgetsConfig.qml"
+        },
+        {
+            "widgetId": "send_drop",
+            "name": Translation.tr("Send (2x1)"),
+            "category": "Devices",
+            "qmlPath": Qt.resolvedUrl("phone/SendDropWidget.qml"),
+            "icon": "send_to_mobile",
+            "description": Translation.tr("2x1 drop target that sends files over KDE Connect or LocalSend to the device you pick."),
+            "configPage": "widgets/DesktopPhoneWidgetsConfig.qml"
+        },
+        {
+            "widgetId": "session_grid",
+            "name": Translation.tr("Session (1x1)"),
+            "category": "System",
+            "qmlPath": Qt.resolvedUrl("system/SessionGridWidget.qml"),
+            "icon": "power_settings_new",
+            "description": Translation.tr("1x1 grid with lock, power off, restart and log out, each asking for a second press."),
+            "configPage": "widgets/DesktopSessionGridConfig.qml"
+        },
+        {
+            "widgetId": "resource_columns",
+            "name": Translation.tr("Resource Columns"),
+            "category": "Resources",
+            "qmlPath": Qt.resolvedUrl("utility/ResourceColumnsWidget.qml"),
+            "icon": "bar_chart",
+            "description": Translation.tr("Pill bars that fill with each picked metric, its shape riding the fill. Two bars per grid cell, horizontal or vertical."),
+            "configPage": "widgets/DesktopResourceStylesConfig.qml"
+        },
+        {
+            "widgetId": "resource_tiles",
+            "name": Translation.tr("Resource Tiles"),
+            "category": "Resources",
+            "qmlPath": Qt.resolvedUrl("utility/ResourceTilesWidget.qml"),
+            "icon": "grid_view",
+            "description": Translation.tr("One expressive 1x1 tile per picked metric with tall digits, a load-shaped badge and a wavy line, in a row or a column."),
+            "configPage": "widgets/DesktopResourceStylesConfig.qml"
+        },
     ]
 
     // Extension widgets from WidgetExtensionManager

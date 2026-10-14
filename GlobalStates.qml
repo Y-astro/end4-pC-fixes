@@ -233,6 +233,7 @@ Singleton {
     property bool notesOpen: false
     property string reminderToOpen: ""
     property string cheatsheetPendingTab: ""
+    property string cheatsheetPendingKeybindPageId: ""
     property string timetableRequestedDate: ""
     property int timetableNavigationRequest: 0
     readonly property bool islandOwnsAlarm: false

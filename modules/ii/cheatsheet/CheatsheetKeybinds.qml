@@ -120,6 +120,18 @@ Item {
             contentLoader.item.forceActiveFocus();
     }
 
+    function consumePendingPage(): void {
+        const pageId = GlobalStates.cheatsheetPendingKeybindPageId;
+        if (!pageId || !root.visible) return;
+        root.selectPage(pageId);
+        GlobalStates.cheatsheetPendingKeybindPageId = "";
+    }
+    onVisibleChanged: if (root.visible) Qt.callLater(root.consumePendingPage)
+    Connections {
+        target: GlobalStates
+        function onCheatsheetPendingKeybindPageIdChanged() { Qt.callLater(root.consumePendingPage); }
+    }
+
     function selectPage(pageId): void {
         const next = String(pageId ?? "");
         if (next && !KeybindsService.pageById(next)) return;

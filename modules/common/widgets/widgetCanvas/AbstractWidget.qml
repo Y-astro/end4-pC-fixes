@@ -1,3 +1,4 @@
+import qs
 import QtQuick
 import Quickshell
 import qs.modules.common
@@ -12,7 +13,7 @@ MouseArea {
     property bool draggable: true
     property int gridSize: 12
     property bool snapEnabled: true
-    readonly property bool dragging: drag.active
+    readonly property bool dragging: drag.active || editDragArea.drag.active
     property bool showSelectionBorder: true
     property bool pinnedBottom: false
 
@@ -144,6 +145,44 @@ MouseArea {
 
         dragProxy.x = root.x
         dragProxy.y = root.y
+    }
+
+    // Cover interactive widget contents while arranging them. The normal
+    // widget mouse/keyboard actions remain available outside edit mode.
+    MouseArea {
+        id: editDragArea
+        anchors.fill: parent
+        z: 100000
+        enabled: GlobalStates.editMode && !GlobalStates.screenLocked
+        visible: enabled
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+        drag.target: root.draggable ? dragProxy : null
+        drag.minimumX: 0
+        drag.minimumY: 0
+        drag.maximumX: Math.max(0, (root.screenWidth ?? root.parent.width) - root.width)
+        drag.maximumY: Math.max(0, (root.screenHeight ?? root.parent.height) - root.height)
+        onPressed: mouse => {
+            const canvas = root.findCanvas(root.parent);
+            if (mouse.modifiers & Qt.ControlModifier) root.selected = !root.selected;
+            else if (!root.selected) {
+                if (canvas) canvas.clearSelection();
+                root.selected = true;
+            }
+            if (canvas) canvas.bringToFront(root);
+            if (typeof root.selectForEditing === "function") root.selectForEditing();
+        }
+        onClicked: mouse => {
+            if (mouse.button !== Qt.RightButton) return;
+            const point = root.mapToItem(null, mouse.x, mouse.y);
+            GlobalStates.desktopMenuId = "editWidget";
+            GlobalStates.desktopMenuScreen = root.QsWindow.window.screen;
+            GlobalStates.desktopMenuX = point.x;
+            GlobalStates.desktopMenuY = point.y;
+            GlobalStates.desktopMenuOpen = true;
+        }
+        onReleased: Qt.callLater(() => root.commitPosition())
+        onCanceled: Qt.callLater(() => root.commitPosition())
     }
 
     Rectangle {

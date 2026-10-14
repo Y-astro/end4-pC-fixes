@@ -13,6 +13,21 @@ import qs.modules.ii.bar as Bar
 
 Item {
     id: root
+    MouseArea {
+        anchors.fill: parent
+        z: 100000
+        acceptedButtons: Qt.RightButton
+        onClicked: mouse => {
+            const window = root.QsWindow.window;
+            const point = root.mapToItem(null, mouse.x, mouse.y);
+            GlobalStates.desktopMenuId = "bar";
+            GlobalStates.desktopMenuScreen = window.screen;
+            GlobalStates.desktopMenuX = point.x + (Config.options.bar.vertical && Config.options.bar.bottom ? window.screen.width - window.width : 0);
+            GlobalStates.desktopMenuY = point.y + (!Config.options.bar.vertical && Config.options.bar.bottom ? window.screen.height - window.height : 0);
+            GlobalStates.desktopMenuOpen = true;
+        }
+    }
+
     implicitWidth: Appearance.sizes.verticalBarWidth
     height: parent.height
 
@@ -21,8 +36,8 @@ Item {
     readonly property bool trayHasItems: TrayService.hasItems
 
     function filterLayout(layout, hasTray) {
-        if (hasTray) return layout
-        return layout.filter(name => name !== "sysTray")
+        const hidden = Config.options.bar.layouts.hiddenWidgets;
+        return layout.filter(name => !hidden.includes(name) && (hasTray || name !== "sysTray"))
     }
 
     readonly property var effectiveLeftLayout:   filterLayout(Config.options.bar.layouts.leftLayout, trayHasItems)

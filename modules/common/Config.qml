@@ -2126,6 +2126,14 @@ Singleton {
                 property string volumeMixer: `~/.config/hypr/hyprland/scripts/launch_first_available.sh "pavucontrol-qt" "pavucontrol"`
             }
 
+            property JsonObject contextMenu: JsonObject {
+                property string style: "comfortable"
+                property string submenus: "inline"
+                property real scale: 1.0
+                property list<var> layouts: []
+                property list<var> customEntries: []
+            }
+
             property JsonObject settings: JsonObject {
                 property string style: "default" // default - minimal
                 property real borderSize: 1
@@ -2271,6 +2279,7 @@ Singleton {
 
                 property string lockWall: ""
                 property bool widgetsLocked: false
+                property list<string> pinnedWidgets: []
                 property bool showGrid: true
                 property bool showBlur: false
                 property string splitRatio: "100" // 25 50 100
@@ -4031,6 +4040,7 @@ Singleton {
                 }
 
                 property JsonObject layouts: JsonObject {
+                    property list<string> hiddenWidgets: []
                     property list<string> leftLayout: ["launcherButton", "workspaces", "activeWindow"]
                     property list<string> middleLayout: ["clockWidget"]
                     property list<string> rightLayout: ["sysTray", "utilButtons", "systemIcons", "powerButton"]

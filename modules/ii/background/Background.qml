@@ -7,6 +7,7 @@ import qs.modules.common.widgets
 import qs.modules.common.widgets.widgetCanvas
 import qs.modules.common.functions as CF
 import qs.modules.ii.background.widgets.visualizer
+import qs.modules.ii.editMode
 import QtQuick
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
@@ -47,6 +48,7 @@ Variants {
         visible: true
 
         readonly property bool hiddenForFullscreen: !GlobalStates.screenLocked
+            && !(GlobalStates.editMode && GlobalStates.editModeMonitorName === bgRoot.screen.name)
             && (activeWorkspaceWithFullscreen != undefined)
             && Config?.options.background.hideWhenFullscreen
 
@@ -84,9 +86,13 @@ Variants {
 
         screen: modelData
         exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.layer: (GlobalStates.screenLocked && !scaleAnim.running) ? WlrLayer.Overlay : WlrLayer.Bottom
+        WlrLayershell.layer: (GlobalStates.screenLocked && !scaleAnim.running)
+            || (GlobalStates.editMode && GlobalStates.editModeMonitorName === bgRoot.screen.name)
+            ? WlrLayer.Overlay : WlrLayer.Bottom
         WlrLayershell.namespace: "quickshell:background"
         WlrLayershell.keyboardFocus: GlobalStates.desktopWidgetKeyboardFocus
+            || (GlobalStates.editMode && GlobalStates.editModeMonitorName === bgRoot.screen.name)
+            || GlobalStates.widgetTypingOwner.startsWith(bgRoot.screen.name + "|")
             ? WlrKeyboardFocus.OnDemand
             : WlrKeyboardFocus.None
         anchors {
@@ -408,6 +414,13 @@ Variants {
             WidgetCanvas {
                 id: widgetCanvas
                 anchors.fill: parent
+                onContextRequested: (positionX, positionY) => {
+                    GlobalStates.desktopMenuId = "desktop";
+                    GlobalStates.desktopMenuScreen = bgRoot.screen;
+                    GlobalStates.desktopMenuX = positionX;
+                    GlobalStates.desktopMenuY = positionY;
+                    GlobalStates.desktopMenuOpen = true;
+                }
 
                 transitions: Transition {
                     PropertyAnimation {
@@ -459,6 +472,44 @@ Variants {
                 }
             }
 
+            Loader {
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: 24
+                anchors.topMargin: 72
+                width: Math.min(440, parent.width - 48)
+                height: Math.max(180, parent.height - 110)
+                z: 1000000
+                active: GlobalStates.editMode && !GlobalStates.screenLocked
+                    && GlobalStates.editModeMonitorName === bgRoot.screen.name
+                sourceComponent: WidgetEditorPanel { screen: bgRoot.screen }
+            }
+            EditAlignBar {
+                z: 1000001
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 24
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: GlobalStates.editMode && !GlobalStates.screenLocked
+                    && GlobalStates.editModeMonitorName === bgRoot.screen.name
+                    && widgetCanvas.selectedWidgets.length >= 2
+                count: widgetCanvas.selectedWidgets.length
+                onRequested: mode => widgetCanvas.alignSelection(mode)
+            }
+            Item {
+                anchors.fill: parent
+                focus: GlobalStates.editMode && GlobalStates.editModeMonitorName === bgRoot.screen.name
+                Keys.onEscapePressed: GlobalStates.closeEditMode()
+                Keys.onDeletePressed: {
+                    if (!GlobalStates.editMode) return;
+                    for (const widget of widgetCanvas.selectedWidgets.slice()) {
+                        if (widget.editInstanceId)
+                            Config.options.background.activeWidgets = Config.options.background.activeWidgets.filter(entry => entry.id !== widget.editInstanceId);
+                        else if (widget.configEntry) widget.configEntry.enable = false;
+                    }
+                    GlobalStates.selectEditWidget("", "", "");
+                }
+            }
+
             /* Desktop menu */
             MouseArea {
                 id: desktopRightClickArea
@@ -466,6 +517,8 @@ Variants {
                 z: -2
                 acceptedButtons: Qt.RightButton
                 onClicked: (mouse) => {
+                    if (GlobalStates.screenLocked) return;
+                    GlobalStates.desktopMenuId = "desktop"
                     GlobalStates.desktopMenuScreen = bgRoot.screen
                     GlobalStates.desktopMenuX = mouse.x
                     GlobalStates.desktopMenuY = mouse.y

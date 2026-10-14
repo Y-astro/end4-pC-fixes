@@ -78,6 +78,48 @@ Singleton {
     property bool usageOpen: false
     property bool modesOpen: false
     property bool editMode: false
+    property string editModeMonitorName: ""
+    property string editModePage: "widgets"
+    property string editWidgetKey: ""
+    property string editWidgetInstanceId: ""
+    property string editWidgetConfigName: ""
+    property bool editModePreviousWidgetsLocked: false
+
+    function openEditMode(page, monitorName): void {
+        if (root.screenLocked) return;
+        if (!root.editMode) root.editModePreviousWidgetsLocked = Config.options.background.widgetsLocked;
+        root.editModeMonitorName = monitorName || root.desktopMenuScreen?.name || Hyprland.focusedMonitor?.name || Quickshell.screens[0]?.name || "";
+        root.editModePage = page || "widgets";
+        root.desktopMenuOpen = false;
+        root.editMode = true;
+        Config.options.background.widgetsLocked = false;
+    }
+    function closeEditMode(): void {
+        if (!root.editMode) return;
+        root.editMode = false;
+        root.editWidgetKey = "";
+        root.editWidgetInstanceId = "";
+        root.editWidgetConfigName = "";
+        Config.options.background.widgetsLocked = root.editModePreviousWidgetsLocked;
+    }
+    function selectEditWidget(key, instanceId, configName): void {
+        root.editWidgetKey = key;
+        root.editWidgetInstanceId = instanceId || "";
+        root.editWidgetConfigName = configName || key;
+    }
+    onScreenLockedChanged: {
+        if (root.screenLocked) {
+            root.closeEditMode();
+            root.desktopMenuOpen = false;
+        }
+    }
+    IpcHandler {
+        target: "editMode"
+        function open(): void { root.openEditMode("widgets", ""); }
+        function bar(): void { root.openEditMode("bar", ""); }
+        function close(): void { root.closeEditMode(); }
+        function toggle(): void { if (root.editMode) root.closeEditMode(); else root.openEditMode("widgets", ""); }
+    }
     property bool islandDashboardOpen: false
 
     function captureSearchTargetWindow(): void {
@@ -206,6 +248,9 @@ Singleton {
     property Item currentPageInstance: null
     property list<real> visualizerPoints: []
     property bool desktopWidgetKeyboardFocus: false
+    property string widgetTypingOwner: ""
+    signal editWidgetOptionsRequested()
+    property string desktopMenuId: "desktop"
     property bool desktopMenuOpen: false
     property var desktopMenuScreen: null
     property real desktopMenuX: 0

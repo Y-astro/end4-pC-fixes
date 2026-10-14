@@ -1,3 +1,4 @@
+import qs
 import Qt5Compat.GraphicalEffects
 import QtQuick
 import QtQuick.Layouts
@@ -25,6 +26,22 @@ Item {
         // Only a video painted by another process (mpvpaper, Wallpaper Engine)
         // locks the image effects; the shell video backend keeps them.
         readonly property bool videoWallpaper: Wallpapers.videoWallpaperActive
+
+        ContentSection {
+            title: Translation.tr("Desktop editing")
+            icon: "edit"
+            RippleButton {
+                Layout.fillWidth: true
+                implicitHeight: 44
+                onClicked: { GlobalStates.settingsOpen = false; GlobalStates.openEditMode("widgets", ""); }
+                StyledText { anchors.centerIn: parent; text: Translation.tr("Edit desktop widgets and bar") }
+            }
+            ConfigSubpageRow {
+                title: Translation.tr("Context menus")
+                buttonIcon: "touch_app"
+                onClicked: GlobalStates.openSettingsPage("contextMenu")
+            }
+        }
 
         ContentSection {
             title: Translation.tr("Parallax Engine")

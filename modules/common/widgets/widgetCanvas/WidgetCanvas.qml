@@ -1,8 +1,33 @@
+import qs
 import QtQuick
+import qs.modules.common.functions
 import qs.modules.common
 
 MouseArea {
     id: root
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
+    signal contextRequested(real positionX, real positionY)
+    readonly property var selectedWidgets: registeredWidgets.filter(widget => widget.selected)
+    function alignSelection(mode) {
+        const widgets = root.selectedWidgets.filter(widget => widget.draggable && !widget.pinnedBottom);
+        const members = widgets.map((widget, index) => ({
+            id: String(index), x: widget.x, y: widget.y, box: { x: widget.x, y: widget.y, width: widget.width, height: widget.height },
+            minX: 0, maxX: Math.max(0, root.width - widget.width),
+            minY: 0, maxY: Math.max(0, root.height - widget.height)
+        }));
+        const changes = WidgetAlign.deltas(members, mode);
+        widgets.forEach((widget, index) => {
+            const delta = changes[String(index)];
+            if (!delta) return;
+            widget.x += delta.dx;
+            widget.y += delta.dy;
+            widget.commitPosition();
+        });
+    }
+    onClicked: mouse => {
+        if (mouse.button === Qt.RightButton && !GlobalStates.screenLocked)
+            root.contextRequested(mouse.x, mouse.y);
+    }
     property int gridSize: 24
     property bool showGrid: false
     readonly property bool isWidgetCanvas: true
@@ -98,7 +123,7 @@ MouseArea {
     }
 
     onPressed: (mouse) => {
-        if (Config.options.background.widgetsLocked) return
+        if (mouse.button !== Qt.LeftButton || GlobalStates.screenLocked || Config.options.background.widgetsLocked) return
         root.selecting = true
         root.selectionStartPoint = Qt.point(mouse.x, mouse.y)
         root.selectionRect = Qt.rect(mouse.x, mouse.y, 0, 0)

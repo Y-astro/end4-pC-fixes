@@ -10,13 +10,21 @@ AbstractWidget {
     id: root
 
     required property string configEntryName
-    required property int screenWidth
-    required property int screenHeight
-    required property int scaledScreenWidth
-    required property int scaledScreenHeight
-    required property real wallpaperScale
+    property int screenWidth: 1920
+    property int screenHeight: 1080
+    property int scaledScreenWidth: screenWidth
+    property int scaledScreenHeight: screenHeight
+    property real wallpaperScale: 1
 
     property Item wallpaperItem: null
+    property bool paused: false
+    property bool live: root.visible && root.opacity > 0 && !root.paused
+    property string editInstanceId: ""
+    property string editWidgetId: ""
+    readonly property string editKey: editInstanceId || configEntryName
+    function selectForEditing() {
+        GlobalStates.selectEditWidget(root.editKey, root.editInstanceId, root.configEntryName);
+    }
 
     property real resizeMaxScale: 2
     property string lockBehavior: "keep"
@@ -42,7 +50,7 @@ AbstractWidget {
         animation: Appearance.animation.elementResize.numberAnimation.createObject(this)
     }
 
-    draggable: placementStrategy === "free" && !Config.options.background.widgetsLocked
+    draggable: placementStrategy === "free" && !Config.options.background.widgetsLocked && !GlobalStates.screenLocked && !(configEntry?.pinned ?? false) && !Config.options.background.pinnedWidgets.includes(configEntryName)
     function restoreXYBinding() {
         root.x = Qt.binding(() => root.targetX);
         root.y = Qt.binding(() => root.targetY);
@@ -50,9 +58,16 @@ AbstractWidget {
     }
 
     function commitPosition() {
-        configEntry.x = root.x;
-        configEntry.y = root.y;
-        configEntry.z = root.z;
+        const newX = Math.max(0, Math.min(root.x, root.scaledScreenWidth - root.width));
+        const newY = Math.max(0, Math.min(root.y, root.scaledScreenHeight - root.height));
+        if (root.editInstanceId) {
+            Config.options.background.activeWidgets = Config.options.background.activeWidgets.map(entry =>
+                entry.id === root.editInstanceId ? Object.assign({}, entry, { x: newX, y: newY, z: root.z }) : entry);
+        } else {
+            configEntry.x = newX;
+            configEntry.y = newY;
+            configEntry.z = root.z;
+        }
         root.targetX = Qt.binding(() => Math.max(0, Math.min(configEntry.x, scaledScreenWidth - width)));
         root.targetY = Qt.binding(() => Math.max(0, Math.min(configEntry.y, scaledScreenHeight - height)));
         root.targetZ = Qt.binding(() => configEntry.z);

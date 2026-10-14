@@ -15,7 +15,7 @@ Item {
     property bool hasPlayer: false
     property bool playing: false
     property real wide: 0
-    readonly property bool animationsEnabled: Config.options.media.albumArtBlurAnimations
+    readonly property bool animationsEnabled: Config.options?.media?.albumArtBlurAnimations ?? true
     property bool initialized: false
     property bool firstVisible: true
     property bool waiting: false

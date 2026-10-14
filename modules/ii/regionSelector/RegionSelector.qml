@@ -14,6 +14,29 @@ Scope {
         GlobalStates.regionSelectorOpen = false
     }
 
+    // The shared AI composer can attach a selected screenshot using the
+    // existing grim/slurp tools, without replacing this shell's capture UI.
+    Connections {
+        target: GlobalStates
+        function onSnipForAiRequested() {
+            if (aiSnip.running) return;
+            GlobalStates.sidebarLeftOpen = false;
+            GlobalStates.closeOverview();
+            aiSnip.running = true;
+        }
+    }
+    Process {
+        id: aiSnip
+        readonly property string outputDir: Directories.genericCache.toString().replace(/^file:\/\//, "") + "/end4-pC/ai-snips"
+        readonly property string outputPath: outputDir + "/selection.png"
+        command: ["bash", "-c", 'mkdir -p -- "$1" && geometry=$(slurp) && grim -g "$geometry" "$2"', "ai-snip", outputDir, outputPath]
+        onExited: (code, status) => {
+            if (code === 0 && status === 0)
+                Ai.attachFile(outputPath);
+            GlobalStates.sidebarLeftOpen = true;
+        }
+    }
+
     property var action: RegionSelection.SnipAction.Copy
     property var selectionMode: RegionSelection.SelectionMode.RectCorners
     

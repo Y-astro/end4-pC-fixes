@@ -18,6 +18,12 @@ Singleton {
     property string status: "loading"
     property var slots: ["", "", "", "", "", "", ""]
 
+    // Shared media tiles expect the provider-neutral current-line contract.
+    // Retain the existing Python provider and seven-slot visualizer API.
+    readonly property bool hasSyncedLines: root.status === "ok" && root.lyricsLines.length > 0
+    readonly property string statusText: root.hasSyncedLines && root.activeIndex >= 0
+        ? String(root.lyricsLines[root.activeIndex]?.text ?? "") : ""
+
     readonly property int before: 3
     readonly property int after:  3
     readonly property int total:  7

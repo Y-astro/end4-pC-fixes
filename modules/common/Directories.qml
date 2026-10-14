@@ -63,6 +63,74 @@ Singleton {
     property string generatedLockMaterialThemePath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/colors-lock.json`)
     property string eqScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/eq/equalizer.sh`)
     property string eqStateDir: FileUtils.trimFileProtocol(`${Directories.state}/user/eq`)
+    // Paths shared by migrated app services.
+    readonly property string desktop: StandardPaths.standardLocations(StandardPaths.DesktopLocation)[0] || (Directories.home + "/Desktop")
+    property string desktopPath: FileUtils.trimFileProtocol(Directories.desktop)
+    readonly property string runtime: FileUtils.trimFileProtocol(StandardPaths.standardLocations(StandardPaths.RuntimeLocation)[0] || "/run/user/1000")
+    property string rustHelpersScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/rust-helpers.sh`)
+    property string localMediaCoverCache: FileUtils.trimFileProtocol(`${Directories.cache}/media/local-media/covers`)
+    property string localMediaLyricsCache: FileUtils.trimFileProtocol(`${Directories.cache}/media/local-media/lyrics`)
+    property string phoneShare: FileUtils.trimFileProtocol(`${Directories.cache}/phone-share`)
+    property string localPreferencesName: "local-preferences.json"
+    property string localPreferencesPath: `${Directories.shellConfig}/${Directories.localPreferencesName}`
+    property string welcomeRequestPath: FileUtils.trimFileProtocol(`${Directories.state}/user/welcome_pending`)
+    property string todoDoneHistoryPath: FileUtils.trimFileProtocol(`${Directories.state}/user/todo_done.json`)
+    property string remindersPath: FileUtils.trimFileProtocol(`${Directories.state}/user/reminders.json`)
+    property string reminderAttachmentsDir: FileUtils.trimFileProtocol(`${Directories.state}/user/reminder_attachments`)
+    property string appUsagePath: FileUtils.trimFileProtocol(`${Directories.state}/user/app_usage.json`)
+    property string appStats: FileUtils.trimFileProtocol(`${Directories.state}/user/app_stats`)
+    property string commandsPath: FileUtils.trimFileProtocol(`${Directories.state}/user/commands.json`)
+    property string keybindsPath: FileUtils.trimFileProtocol(`${Directories.state}/user/keybinds.json`)
+    property string keybindTemplatesPath: FileUtils.trimFileProtocol(Quickshell.shellPath("defaults/keybinds/templates.json"))
+    property string keybindImporterPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/keybinds/import_keybinds.py`)
+    property string keybindAiCategorizerPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/keybinds/ai_categorize.py`)
+    property string noteSketchesDir: FileUtils.trimFileProtocol(`${Directories.state}/user/note_sketches`)
+    property string notesDir: FileUtils.trimFileProtocol(`${Directories.state}/user/notes`)
+    property string notesIndexPath: `${Directories.notesDir}/index.json`
+    property string notesDocsDir: `${Directories.notesDir}/docs`
+    property string notesAssetsDir: `${Directories.notesDir}/assets`
+    property string notesRevisionsDir: `${Directories.notesDir}/revisions`
+    property string notesLegacyBackupPath: `${Directories.notesPath}.migrated`
+    property string notesLinkPreviewsCacheDir: FileUtils.trimFileProtocol(`${Directories.cache}/media/link_previews`)
+    property string lyricsPath: FileUtils.trimFileProtocol(`${Directories.cache}/lyrics/lyrics.json`)
+    property string betterlyricsCachePath: FileUtils.trimFileProtocol(`${Directories.cache}/lyrics/betterlyrics.json`)
+    property string customLyricsPath: FileUtils.trimFileProtocol(`${Directories.state}/user/custom-lyrics.json`)
+    property string holidaysCachePath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/holidays.json`)
+    property string shellUpdateSummaryPath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/shell_update_summary.json`)
+    property string sportsCachePath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/sports.json`)
+    property string googleCalendarColorsPath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/google_calendar_colors.json`)
+    property string generateLockscreenColorsScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/colors/generate-lockscreen-colors.sh`)
+    property string gammaControlScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/brightness/ii-gamma-control`)
+    property string displayColorFilterWriterPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/display/write_color_filter.py`)
+    property string displayColorFilterGeneratedPath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/display-color-filter`)
+    property string defaultThemes: Quickshell.shellPath("defaults/themes")
+    property string customThemes: `${Directories.shellConfig}/themes`
+    property string aiUsage: FileUtils.trimFileProtocol(`${Directories.state}/user/ai/usage.json`)
+    property string aiDrafts: FileUtils.trimFileProtocol(`${Directories.state}/user/ai/drafts`)
+    property string aiSessions: FileUtils.trimFileProtocol(`${Directories.state}/user/ai/sessions`)
+    property string aiExports: FileUtils.trimFileProtocol(`${Directories.documents}/ai-chats`)
+    property string aiSessionsScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/ai/ai_sessions.py`)
+    property string aiDraftsScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/ai/ai_drafts.py`)
+    property string aiAttachScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/ai/ai_attach.py`)
+    property string aiSettingsIndexPath: FileUtils.trimFileProtocol(`${Directories.state}/user/ai/settings_index.json`)
+    property string aiLastAnswer: FileUtils.trimFileProtocol(`${Directories.state}/user/ai/last_answer.json`)
+    property string aiSettingsIndexScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/ai/ai_settings_index.py`)
+    property string aiWebScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/ai/ai_web.py`)
+    property string aiRagScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/ai/ai_rag.py`)
+    property string aiRagIndexDir: FileUtils.trimFileProtocol(`${Directories.state}/user/ai/rag_index`)
+    property string processVideoScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/videos/compress_video.py`)
+    property string extractColorsScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/wallpapers/extract-colors.sh`)
+    property string colorCachePath: FileUtils.trimFileProtocol(`${Directories.cache}/wallpapers/colors.json`)
+    property string screenshareStateScript: FileUtils.trimFileProtocol(`${Directories.scriptPath}/screenShare/screensharestate.sh`)
+    property string screenshareStatePath: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/screenshare/apps.txt`)
+    property string geniusLyricsScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/lyrics/genius-lyrics.js`)
+    property string ytmusicLyricsScriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/lyrics/ytmusic-lyrics-wrapper.sh`)
+    property string userWidgetsPath: FileUtils.trimFileProtocol(`${Directories.shellConfig}/user_widgets`)
+    property string widgetExtensionsPath: `${Directories.shellConfig}/widget_extensions.json`
+    property string widgetBackupsPath: FileUtils.trimFileProtocol(`${Directories.shellConfig}/user_widgets/.backups`)
+
+
+
     // Cleanup on init
     Component.onCompleted: {
         Quickshell.execDetached(["mkdir", "-p", `${userPresetsPath}`])

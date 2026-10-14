@@ -20,6 +20,15 @@ Singleton {
     property bool equalizerOpen: false
     property bool sidebarLeftOpen: false
     property bool sidebarRightOpen: false
+    // New panels share the original end4-pC sidebar state and placement.
+    property alias policiesPanelOpen: root.sidebarLeftOpen
+    property alias dashboardPanelOpen: root.sidebarRightOpen
+    property string activeLeftSidebarMonitor: ""
+    signal snipForAiRequested()
+    onSidebarLeftOpenChanged: {
+        if (root.sidebarLeftOpen)
+            root.activeLeftSidebarMonitor = Hyprland.focusedMonitor?.name ?? Quickshell.primaryScreen?.name ?? "";
+    }
     property bool mediaControlsOpen: false
     property bool mediaHovered: false
     property bool mediaDropdownHovered: false
@@ -186,6 +195,61 @@ Singleton {
     readonly property bool dynamicIslandEnabled: Config.options.bar.layouts.leftLayout.includes("dynamicIsland")
         || Config.options.bar.layouts.middleLayout.includes("dynamicIsland")
         || Config.options.bar.layouts.rightLayout.includes("dynamicIsland")
+
+
+    // App navigation stays independent of the lifetime of the lazy window.
+    property string clockAppPendingTab: ""
+    property bool easyEffectsAppOpen: false
+    property string easyEffectsAppPendingTab: ""
+    property string modesAppPendingTab: ""
+    property string usageAppPendingTab: ""
+    property string notesAppPendingNote: ""
+    property bool notesOpen: false
+    property string reminderToOpen: ""
+    property string cheatsheetPendingTab: ""
+    property string timetableRequestedDate: ""
+    property int timetableNavigationRequest: 0
+    readonly property bool islandOwnsAlarm: false
+    readonly property bool islandOwnsReminder: false
+    signal osdPillRequested(string icon, string label, string state)
+
+    function openClockApp(tab = ""): void {
+        root.clockAppPendingTab = String(tab ?? "");
+        root.clockAppOpen = true;
+    }
+    function openEasyEffectsApp(tab = ""): void {
+        root.easyEffectsAppPendingTab = String(tab ?? "");
+        root.easyEffectsAppOpen = true;
+    }
+    function openModesApp(tab = ""): void {
+        root.modesAppPendingTab = String(tab ?? "");
+        root.modesOpen = true;
+    }
+    function openUsageApp(tab = ""): void {
+        root.usageAppPendingTab = String(tab ?? "");
+        root.usageOpen = true;
+    }
+    function openNotes(noteId = ""): void {
+        root.notesAppPendingNote = String(noteId ?? "");
+        root.notesAppOpen = true;
+    }
+    function openCheatsheet(tabId = ""): void {
+        root.cheatsheetPendingTab = String(tabId ?? "");
+        root.cheatsheetOpen = true;
+    }
+    function closeCheatsheet(): void {
+        root.cheatsheetOpen = false;
+    }
+    function openTimetableAt(dateValue): void {
+        const text = String(dateValue ?? "").trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return;
+        const parts = text.split("-").map(Number);
+        const date = new Date(parts[0], parts[1] - 1, parts[2]);
+        if (Qt.formatDate(date, "yyyy-MM-dd") !== text) return;
+        root.timetableRequestedDate = text;
+        root.timetableNavigationRequest++;
+        root.openCheatsheet("timetable");
+    }
 
     // Media Mode State Management
     property int mediaModeCount: 0

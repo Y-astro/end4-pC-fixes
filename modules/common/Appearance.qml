@@ -1,10 +1,61 @@
 import QtQuick
 import Quickshell
 import qs.modules.common.functions
+import "HyprlandBlur.js" as HyprlandBlur
 pragma Singleton
 pragma ComponentBehavior: Bound
 
 Singleton {
+    property color activeBorderColor: {
+        let type = Config.options.appearance.borderColorType;
+        if (type === "secondary")
+            return colors.colSecondary;
+        if (type === "tertiary")
+            return colors.colTertiary;
+        if (type === "primaryContainer")
+            return colors.colPrimaryContainer;
+        if (type === "surface")
+            return colors.colOutlineVariant;
+        return colors.colPrimary;
+    }
+    property bool borderless: Config.options.appearance.borderless ?? false
+    property int borderWidth: Config.options.appearance.borderWidth ?? 2
+    property int blurSize: Config.options.appearance.blurSize ?? 8
+    readonly property string blurConfigScript: HyprlandBlur.buildScript(root.blurSize, Config.options.appearance.blur)
+    readonly property string compositorBlurMode: Config.options.appearance.blur?.mode ?? "live"
+    readonly property bool compositorBlurOff: root.compositorBlurMode === "off"
+    readonly property bool opaqueWindows: Config.options.appearance.blur?.opaqueWindows ?? false
+    property bool _blurUpdatePending: false
+    property bool _blurLayerRulesPending: false
+    property real ignoreAlpha: Config.options.appearance.ignoreAlpha ?? 0.2
+    readonly property real barIgnoreAlpha: (Config.options?.bar?.barBackgroundStyle ?? 1) === 0
+    readonly property real islandIgnoreAlpha: Math.min(root.ignoreAlpha, Math.max(0, 1 - root.backgroundTransparency - 0.01))
+    readonly property bool popupBlurEnabled: (Config.options?.appearance?.transparency?.enable ?? false) && (Config.options?.appearance?.transparency?.popups ?? false)
+    readonly property real popupIgnoreAlpha: Math.min(root.ignoreAlpha, Math.max(0, 1 - root.backgroundTransparency - 0.01))
+    property real widgetBackgroundAlpha: 1
+    property var widgetSelfBlurScreens: ({})
+    readonly property bool backgroundWidgetsTranslucent: root.widgetBackgroundAlpha > 0.01 && root.widgetBackgroundAlpha < 0.99
+    readonly property real backgroundWidgetsIgnoreAlpha: Math.min(root.ignoreAlpha, Math.max(0, root.widgetBackgroundAlpha - 0.01))
+    readonly property string backgroundWidgetsRules: {
+        let out = "";
+        for (const screen of Object.keys(root.widgetSelfBlurScreens)) {
+            const blur = root.backgroundWidgetsTranslucent && root.widgetSelfBlurScreens[screen] !== true;
+            out += "hl.layer_rule({ name = 'ii:appearance:background-widgets:" + screen + "', match = { namespace = '^quickshell:backgroundWidgets:" + screen + "$' }, blur = "
+                + (blur ? "true" : "false") + ", ignore_alpha = " + root.backgroundWidgetsIgnoreAlpha + " }) ";
+        }
+        return out;
+    }
+    readonly property bool mediaModeImmersive: Config.options?.background?.mediaMode?.immersive ?? false
+    property bool _isApplyingRules: false
+    property bool _rulesReapplyPending: false
+    property bool _isApplyingBorder: false
+    property bool _borderReapplyPending: false
+    property int gapsIn: Config.options.appearance.gapsIn ?? 4
+    readonly property int effectiveGapsIn: (PanelFamily.isTablet && (Config.options?.tablet?.windows?.splitHandles ?? true))
+    property int gapsOut: Config.options.appearance.gapsOut ?? 5
+    readonly property real animMultiplier: Config.options?.appearance?.animationMultiplier ?? 1.0
+    readonly property bool reducedMotion: root.animMultiplier <= 0.25
+
     id: root
     property QtObject m3colors
     property QtObject animation
@@ -126,6 +177,11 @@ Singleton {
     }
 
     colors: QtObject {
+        property color colBackgroundSurfaceContainerAccent: ColorUtils.transparentize(
+            ColorUtils.mix(m3colors.m3surfaceContainer, m3colors.m3primaryContainer,
+                           1.0 - (Config.options.search.appearance.accentPanels ? Config.options.search.appearance.accentStrength : 0.0)),
+            root.backgroundTransparency)
+
         property color colSubtext: m3colors.m3outline
         // Layer 0
         property color colLayer0Base: ColorUtils.mix(m3colors.m3background, m3colors.m3primary, Config.options.appearance.extraBackgroundTint ? 0.99 : 1)
@@ -216,6 +272,15 @@ Singleton {
     }
 
     rounding: QtObject {
+        property real scale: {
+            let rv = Config.options.appearance.roundingValue;
+            if (rv > 0)
+                return rv / 24.0;
+            if (rv < 0)
+                return 1.0; // not yet migrated, default to large
+            return 0.0; // roundingValue === 0 → sharp
+        }
+
         property int unsharpen: 2
         property int unsharpenmore: 6
         property int verysmall: 8
@@ -240,6 +305,17 @@ Singleton {
             property string expressive: Config.options.appearance.fonts.expressive
         }
         property QtObject variableAxes: QtObject {
+            property var rounded: ({
+                    "wght": 450,
+                    "wdth": 100,
+                    "ROND": 100
+                })
+            property var titleRounded: ({
+                    "wght": 550,
+                    "ROND": 100
+                })
+            readonly property int steps: 3
+
             property var main: ({
                 "wght": 450,
                 "wdth": 100,
@@ -285,6 +361,123 @@ Singleton {
     }
 
     animation: QtObject {
+        property QtObject popupEnter: QtObject {
+            property int duration: Math.round(280 * root.animMultiplier)
+        }
+        property QtObject popupExit: QtObject {
+            property int duration: Math.round(150 * root.animMultiplier)
+        }
+        property QtObject elementMoveSlow: QtObject {
+            property int duration: Math.round(animationCurves.expressiveEffectsDuration * 2.5 * root.animMultiplier)
+            property int type: Easing.BezierSpline
+            property list<real> bezierCurve: animationCurves.expressiveEffects
+            property int velocity: 850
+            property Component colorAnimation: Component {
+                ColorAnimation {
+                    duration: root.animation.elementMoveSlow.duration
+                    easing.type: root.animation.elementMoveSlow.type
+                    easing.bezierCurve: root.animation.elementMoveSlow.bezierCurve
+                }
+            }
+            property Component numberAnimation: Component {
+                NumberAnimation {
+                    alwaysRunToEnd: true
+                    duration: root.animation.elementMoveSlow.duration
+                    easing.type: root.animation.elementMoveSlow.type
+                    easing.bezierCurve: root.animation.elementMoveSlow.bezierCurve
+                }
+            }
+        }
+        property QtObject elementMoveSnap: QtObject {
+            property int duration: Math.round(150 * root.animMultiplier)
+            property int type: Easing.BezierSpline
+            property list<real> bezierCurve: animationCurves.expressiveFastSpatial
+            property Component numberAnimation: Component {
+                NumberAnimation {
+                    duration: root.animation.elementMoveSnap.duration
+                    easing.type: root.animation.elementMoveSnap.type
+                    easing.bezierCurve: root.animation.elementMoveSnap.bezierCurve
+                }
+            }
+        }
+        property QtObject barResize: QtObject {
+            property int duration: Math.round(280 * root.animMultiplier)
+            property int type: Easing.BezierSpline
+            property list<real> bezierCurve: animationCurves.expressiveFastSpatial
+            property Component numberAnimation: Component {
+                NumberAnimation {
+                    duration: root.animation.barResize.duration
+                    easing.type: root.animation.barResize.type
+                    easing.bezierCurve: root.animation.barResize.bezierCurve
+                }
+            }
+        }
+        property QtObject dashboardIndicatorResize: QtObject {
+            property int duration: Math.round(420 * root.animMultiplier)
+            property int type: Easing.BezierSpline
+            property list<real> bezierCurve: animationCurves.standard
+        }
+        property QtObject dashboardIndicatorPop: QtObject {
+            property int enterDuration: Math.round(360 * root.animMultiplier)
+            property int exitDuration: Math.round(280 * root.animMultiplier)
+            property int cueDelay: Math.round(90 * root.animMultiplier)
+            property int exitHoldDuration: Math.round(220 * root.animMultiplier)
+            property int enterType: Easing.OutBack
+            property real enterOvershoot: 1.18
+            property int exitType: Easing.BezierSpline
+            property list<real> exitCurve: animationCurves.emphasizedAccel
+        }
+        property QtObject shellEdgeSlide: QtObject {
+            property int exitDuration: Math.round(260 * root.animMultiplier)
+            property int enterDuration: Math.round(420 * root.animMultiplier)
+            property int swapHold: Math.round(90 * root.animMultiplier)
+            property Component numberAnimation: Component {
+                NumberAnimation {
+                    duration: root.animation.shellEdgeSlide.enterDuration
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: root.animationCurves.emphasized
+                }
+            }
+        }
+        property QtObject sidebarSlide: QtObject {
+            property int enterDuration: Math.round(500 * root.animMultiplier)
+            property int exitDuration: Math.round(500 * root.animMultiplier)
+            property list<real> enterCurve: root.animationCurves.emphasized
+            property list<real> exitCurve: root.animationCurves.emphasized
+            property int parallaxDuration: Math.round(700 * root.animMultiplier)
+            property list<real> parallaxCurve: root.animationCurves.emphasized
+        }
+        property QtObject dockMagnificationScale: QtObject {
+            property QtObject fast: QtObject {
+                property real pointerLag: 0
+                property int strengthDuration: Math.round(90 * root.animMultiplier)
+                property int exitDuration: Math.round(220 * root.animMultiplier)
+            }
+            property QtObject balanced: QtObject {
+                property real pointerLag: 28
+                property int strengthDuration: Math.round(150 * root.animMultiplier)
+                property int exitDuration: Math.round(280 * root.animMultiplier)
+            }
+            property QtObject smooth: QtObject {
+                property real pointerLag: 60
+                property int strengthDuration: Math.round(220 * root.animMultiplier)
+                property int exitDuration: Math.round(340 * root.animMultiplier)
+            }
+            property int hoverExitGrace: 90
+        }
+        property QtObject dockMagnification: QtObject {
+            property int duration: Math.round(220 * root.animMultiplier)
+            property int type: Easing.OutBack
+            property real overshoot: 1.35
+            property Component numberAnimation: Component {
+                NumberAnimation {
+                    duration: root.animation.dockMagnification.duration
+                    easing.type: root.animation.dockMagnification.type
+                    easing.overshoot: root.animation.dockMagnification.overshoot
+                }
+            }
+        }
+
         property QtObject elementMove: QtObject {
             property int duration: animationCurves.expressiveDefaultSpatialDuration
             property int type: Easing.BezierSpline
@@ -390,6 +583,14 @@ Singleton {
         }
         
         property QtObject scroll: QtObject {
+            property Component numberAnimation: Component {
+                NumberAnimation {
+                    duration: root.animation.scroll.duration
+                    easing.type: root.animation.scroll.type
+                    easing.bezierCurve: root.animation.scroll.bezierCurve
+                }
+            }
+
             property int duration: 200
             property int type: Easing.BezierSpline
             property list<real> bezierCurve: root.animationCurves.standardDecel
@@ -434,6 +635,31 @@ Singleton {
     
 
     sizes: QtObject {
+        property real minimumTouchTarget: 48
+        readonly property real familyWidgetGridStep: PanelFamily.touchFirst ? 40 : 10
+        property real widgetGridStep: {
+            const configured = Config.options?.background?.widgets?.gridStep ?? 0;
+            return configured > 0 ? configured : root.sizes.familyWidgetGridStep;
+        }
+        readonly property real barReferenceHeight: 40
+        readonly property real barReferenceWidth: 44
+        readonly property real barContentScale: root.sizes.baseBarHeight / root.sizes.barReferenceHeight
+        readonly property real verticalBarContentScale: root.sizes.verticalBarWidth / root.sizes.barReferenceWidth
+        property real toolbarHeight: 46
+        property real editModeToolbarHeight: 60
+        property real editModeMargin: 24
+        property real editModeEdgeMargin: 12
+        property real editModeDrawerWidth: 380
+        property real verticalBarWindowWidth: BarInteraction.cornerStyle === 1 ? (baseVerticalBarWidth + root.sizes.hyprlandGapsOut * 2) : baseVerticalBarWidth
+        property real wallpaperSelectorSidebarWidth: 180
+        property real wallpaperSelectorSidebarButtonHeight: 48
+        property real wallpaperSelectorSidebarHorizontalPadding: 6
+        property real wallpaperSelectorSidebarButtonSpacing: 3
+        property real wallpaperSelectorSidebarGroupSpacing: 10
+        property real wallpaperSelectorSearchWidth: 300
+        property real wallpaperSelectorSortDialogWidth: 280
+        property int dockButtonSize: Math.round((Config.options?.dock.height ?? 60) * 0.85)
+
         property real baseBarHeight: 40
         property real barHeight: Config.options.bar.cornerStyle === 1 ? 
             (baseBarHeight + root.sizes.hyprlandGapsOut * 2) : baseBarHeight

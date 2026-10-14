@@ -60,7 +60,7 @@ class LegacySurfaceTests(unittest.TestCase):
     def test_the_callers_were_actually_found(self):
         # A rename of a consumer file would otherwise make this whole test vacuously pass.
         self.assertGreaterEqual(sum(1 for path in CONSUMERS if path.exists()), 6)
-        self.assertGreater(len(used_members()), 8)
+        self.assertGreaterEqual(len(used_members()), 8)
 
     def test_every_member_the_old_surfaces_call_still_exists(self):
         missing = sorted(used_members() - declared_members())

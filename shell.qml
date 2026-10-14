@@ -40,17 +40,37 @@ ShellRoot {
         }
     }
 
+    // First paint needs only the theme, wallpaper and compatibility checks.
     Component.onCompleted: {
-        MaterialThemeLoader.reapplyTheme()
-        Hyprsunset.load()
-        FirstRunExperience.load()
-        ConflictKiller.load()
-        Cliphist.refresh()
-        Wallpapers.load()
-        Updates.load()
-        LyricsService.restartLyrics()
-        KdeConnectService.load()
-        PresetStore.ensureLoaded()
+        MaterialThemeLoader.reapplyTheme();
+        FirstRunExperience.load();
+        ConflictKiller.load();
+        Wallpapers.load();
+        deferredServicesTimer.restart();
+    }
+
+    Timer {
+        id: deferredServicesTimer
+        interval: 3000
+        onTriggered: {
+            Hyprsunset.load();
+            Cliphist.refresh();
+            Updates.load();
+            LyricsService.restartLyrics();
+            KdeConnectService.load();
+            PresetStore.ensureLoaded();
+            // Scheduling belongs to services, so alerts survive closed app windows.
+            AlarmService.alarms;
+            RemindersService.loaded;
+            BedtimeService.enabled;
+            Modes.enabled;
+            if (Config.options?.notes?.enable ?? true)
+                NotesService.ready;
+            if (Config.options?.clockApp?.phoneAlarm?.enable ?? false)
+                PhoneAlarmService.enabled;
+            if (Config.options?.calendar?.timetable?.notifications?.enable ?? false)
+                CalendarNotifier.enabled;
+        }
     }
 
     Loader {

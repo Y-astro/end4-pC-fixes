@@ -75,10 +75,13 @@ Item {
   property QtObject cheatsheet: QtObject {property int tabIndex: 1}
  }}
  Item {id: cheatsheetBackground; property bool ctrlPressed: false}
+ QtObject {id: settingsHost; property real progress: 0}
+ Timer {id: initialFocusTimer; interval: 0}
  Component {
   id: frameComponent
   RetainedLoader {
-   width: 1200; height: 700; requested: true; retainFor: 60
+   id: cheatsheetLoader
+   width: 1200; height: 700; requested: root.activeState || root.cachePrepared; retainFor: 60
    sourceComponent: Item {
     id: cheatsheetRoot
     property var screen: ({width:root.screenWidth,height:900})
@@ -129,7 +132,8 @@ Item {
    }
    compare(TabBuilds.counts[cached.pageName],1);
    root.cachePrepared=false;
-   for(let i=0;i<sheet.view.count;i++) tryCompare(sheet.view.itemAt(i),"item",null);
+   tryCompare(frame,"active",false);
+   compare(frame.item,null,"The expired window releases the entire cached tab tree");
   }
   function test_switching_tabs_replaces_the_cache() {
    root.cachePrepared=true;

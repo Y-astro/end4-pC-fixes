@@ -8,11 +8,11 @@ Item {
     id: root
     
     // Propiedades que recibe desde BarConfig.qml
-    property alias model: repeater.model
+    property var model: []
     property var onItemSelected: (item) => {} 
     
     // Control de visibilidad
-    property bool visible: false
+    visible: false
 
     LazyLoader {
         id: loader
@@ -33,8 +33,8 @@ Item {
             implicitHeight: container.implicitHeight + 40
 
             // Si el usuario hace clic fuera o la ventana pierde foco, cerramos
-            onActiveChanged: {
-                if (!active) root.visible = false
+            onActiveFocusChanged: {
+                if (!activeFocus) root.visible = false
             }
 
             // Sombras usando tus widgets existentes
@@ -61,6 +61,7 @@ Item {
 
                     Repeater {
                         id: repeater
+                        model: root.model
                         delegate: MouseArea {
                             Layout.fillWidth: true
                             implicitHeight: 40 

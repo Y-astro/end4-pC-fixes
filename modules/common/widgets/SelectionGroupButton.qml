@@ -24,6 +24,7 @@ GroupButton {
     property string buttonColor
     property bool leftmost: false
     property bool rightmost: false
+    property bool isDragging: false
     
     readonly property bool sharpModeEnabled: Config.options?.appearance?.sharpMode ?? false
     readonly property int fullRadius: sharpModeEnabled ? Appearance.rounding.full : height / 2

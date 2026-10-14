@@ -65,7 +65,6 @@ Item {
         anchors.bottomMargin: root.spacing
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: root.spacing
-        layoutDirection: Qt.RightToLeft
 
         Repeater {
             model: root.actions

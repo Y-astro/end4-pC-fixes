@@ -119,15 +119,16 @@ ContentPage {
                 : Translation.tr("Drag the Tacet Mark on your desktop to move it, drag its edge to resize it.")
         }
 
-        ConfigSelectionArray {
-            text: Translation.tr("Colors")
-            icon: "palette"
-            currentValue: settingsVisualizer1.entry?.colorSource ?? "theme"
-            onSelected: newValue => {
-                if (settingsVisualizer1.entry)
-                    settingsVisualizer1.entry.colorSource = newValue;
-            }
-            options: [
+        ContentSubsection {
+            title: Translation.tr("Colors")
+
+            ConfigSelectionArray {
+                currentValue: settingsVisualizer1.entry?.colorSource ?? "theme"
+                onSelected: newValue => {
+                    if (settingsVisualizer1.entry)
+                        settingsVisualizer1.entry.colorSource = newValue;
+                }
+                options: [
                 {
                     displayName: Translation.tr("Theme"),
                     icon: "palette",
@@ -140,6 +141,7 @@ ContentPage {
                 }
             ]
         }
+    }
 
         GroupedList {
             ConfigSlider {
@@ -276,26 +278,28 @@ ContentPage {
                 : Translation.tr("Drag the Tacet Mark on your desktop to move it, drag its edge to resize it.")
         }
 
-        ConfigSelectionArray {
-            text: Translation.tr("Colors")
-            icon: "palette"
-            currentValue: settingsVisualizer2.entry?.colorSource ?? "theme"
-            onSelected: newValue => {
-                if (settingsVisualizer2.entry)
-                    settingsVisualizer2.entry.colorSource = newValue;
-            }
-            options: [
-                {
-                    displayName: Translation.tr("Theme"),
-                    icon: "palette",
-                    value: "theme"
-                },
-                {
-                    displayName: Translation.tr("Album cover"),
-                    icon: "album",
-                    value: "cover"
+        ContentSubsection {
+            title: Translation.tr("Colors")
+
+            ConfigSelectionArray {
+                currentValue: settingsVisualizer2.entry?.colorSource ?? "theme"
+                onSelected: newValue => {
+                    if (settingsVisualizer2.entry)
+                        settingsVisualizer2.entry.colorSource = newValue;
                 }
-            ]
+                options: [
+                    {
+                        displayName: Translation.tr("Theme"),
+                        icon: "palette",
+                        value: "theme"
+                    },
+                    {
+                        displayName: Translation.tr("Album cover"),
+                        icon: "album",
+                        value: "cover"
+                    }
+                ]
+            }
         }
 
         GroupedList {

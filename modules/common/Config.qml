@@ -2126,14 +2126,6 @@ Singleton {
                 property string volumeMixer: `~/.config/hypr/hyprland/scripts/launch_first_available.sh "pavucontrol-qt" "pavucontrol"`
             }
 
-            property JsonObject contextMenu: JsonObject {
-                property string style: "comfortable"
-                property string submenus: "inline"
-                property real scale: 1.0
-                property list<var> layouts: []
-                property list<var> customEntries: []
-            }
-
             property JsonObject settings: JsonObject {
                 property string style: "default" // default - minimal
                 property real borderSize: 1

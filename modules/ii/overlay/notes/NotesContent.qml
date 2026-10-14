@@ -2,8 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
-import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -13,23 +11,130 @@ OverlayBackground {
     id: root
 
     property alias content: textInput.text
-    property bool pendingReload: false
     property var copyListEntries: []
     property string lastParsedCopylistText: ""
     property var parsedCopylistLines: []
     property bool isClickthrough: false
     property real maxCopyButtonSize: 20
-
+    property int currentTabIndex: Persistent.states.overlay.notes.tabIndex
+    property bool tabEditModeEnabled: false
     Component.onCompleted: {
-        noteFile.reload();
+        root.tabsData = NotesService.tabsData;
+        root.loadTabContent(root.currentTabIndex);
         updateCopyListEntries();
     }
 
-    function saveContent() {
+    Component.onDestruction: {
+        // The debounce timer dies with this widget; commit whatever it was still holding.
+        if (saveDebounce.running) {
+            saveDebounce.stop();
+            root.saveToFile();
+        }
+    }
+
+    Connections {
+        target: NotesService
+        function onDataChanged() {
+            root.tabsData = NotesService.tabsData;
+            root.loadTabContent(root.currentTabIndex);
+        }
+    }
+
+    property var tabsData: NotesService.tabsData
+
+    /**
+     * Whether the sketch editor is covering the note.
+     *
+     * Notes could already hold a drawing — the tablet's live-draw sheet files into one —
+     * but the only way to make one was to draw over the whole screen first. This is the
+     * other direction: open a note and draw in it.
+     */
+    property bool sketchEditorOpen: false
+
+    readonly property string currentSketch: {
+        const tab = root.tabsData.tabs[root.currentTabIndex];
+        return String(tab?.sketch ?? "");
+    }
+
+    property var tabOptions: root.tabsData.tabs.map((tab, index) => ({
+        displayName: tab.title,
+        icon: tab.icon,
+        value: index
+    }))
+
+    function saveToFile() {
         if (!textInput)
             return;
-        noteFile.setText(root.content);
+        
+        NotesService.updateTab(currentTabIndex, root.content);
     }
+
+    function loadTabContent(tabIndex) {
+        if (tabIndex >= 0 && tabIndex < tabsData.tabs.length) {
+            root.content = tabsData.tabs[tabIndex].content || "";
+            updateCopyListEntries();
+        }
+    }
+
+    function changeCurrentTab(index) {
+        Persistent.states.overlay.notes.tabIndex = index;
+    }
+
+    function addNewTab() {
+        const newTabIndex = root.tabsData.tabs.length;
+        const newTab = {
+            title: "Tab " + (newTabIndex + 1),
+            icon: "article",
+            content: ""
+        };
+        
+        let newTabs = root.tabsData.tabs.slice();
+        newTabs.push(newTab);
+        
+        root.tabsData = { tabs: newTabs };
+        NotesService.replaceTabs(root.tabsData);
+        
+        root.changeCurrentTab(newTabIndex);
+        Qt.callLater(() => {
+            loadTabContent(newTabIndex);
+            focusAtEnd();
+        });
+    }
+
+    function deleteCurrentTab() {
+        if (root.tabsData.tabs.length <= 1) {
+            let newTabs = [{
+                title: "Tab 1",
+                icon: "article",
+                content: ""
+            }];
+            root.tabsData = { tabs: newTabs };
+            Persistent.states.overlay.notes.tabIndex = 0;
+            root.content = "";
+            NotesService.replaceTabs(root.tabsData);
+            Qt.callLater(() => {
+                updateCopyListEntries();
+            });
+            return;
+        }
+
+        const deletedIndex = currentTabIndex;
+        let newTabs = root.tabsData.tabs.slice();
+        newTabs.splice(deletedIndex, 1);
+
+        const newIndex = Math.min(deletedIndex, newTabs.length - 1);
+
+        root.tabsData = { tabs: newTabs };
+        Persistent.states.overlay.notes.tabIndex = newIndex;
+        root.content = newTabs[newIndex].content || "";
+
+        NotesService.replaceTabs(root.tabsData);
+
+        Qt.callLater(() => {
+            updateCopyListEntries();
+        });
+    }
+
 
     function focusAtEnd() {
         if (!textInput)
@@ -54,7 +159,7 @@ OverlayBackground {
         if (!textInput)
             return;
         if (immediate) {
-            copyListDebounce?.stop();
+            if (copyListDebounce) copyListDebounce.stop();
             updateCopyListEntries();
         } else {
             copyListDebounce.restart();
@@ -141,36 +246,217 @@ OverlayBackground {
 
     ColumnLayout {
         id: contentItem
-        anchors.fill: parent
-        spacing: -16
+        property int margin: Config.options.overlay.notes.showTabs ? 26 : 14
+        anchors {
+            fill: parent
+            leftMargin: margin
+            rightMargin: margin
+            topMargin: margin 
+        }
+        spacing: 14
+
+        
+
+        Loader {
+            Layout.fillWidth: true
+            active: Config.options.overlay.notes.showTabs
+            sourceComponent: RowLayout {
+                Layout.fillWidth: true
+
+                ConfigSelectionArray {
+                    currentValue: root.currentTabIndex
+                    Layout.fillWidth: true
+                    
+                    onSelected: newValue => {
+                        if (root.tabEditModeEnabled) return;
+
+                        saveToFile();
+                        root.content = "";
+                        root.changeCurrentTab(newValue);
+
+                        Qt.callLater(() => loadTabContent(newValue));
+                    }
+
+                    options: root.tabOptions
+                }
+
+                MaterialSymbol {
+                    text: "info"
+                    iconSize: Appearance.font.pixelSize.large
+                    
+                    color: Appearance.colors.colSubtext
+                    MouseArea {
+                        id: infoMouseArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.WhatsThisCursor
+                        StyledToolTip {
+                            extraVisibleCondition: false
+                            alternativeVisibleCondition: infoMouseArea.containsMouse
+                            text: Translation.tr("You can delete a tab with SHIFT+DELETE")
+                        }
+                    }
+                }
+
+                ConfigSelectionArray {
+                    currentValue: root.tabEditModeEnabled ? 0 : -1
+                    Layout.fillWidth: false
+                    options: [
+                        {
+                            displayName: "",
+                            icon: "edit",
+                            value: 0,
+                            releaseAction: (() => root.tabEditModeEnabled = !root.tabEditModeEnabled)
+                        },
+                        {
+                            displayName: "",
+                            icon: "add",
+                            value: 1,
+                            releaseAction: (() => root.addNewTab())
+                        },
+                        {
+                            displayName: "",
+                            icon: "delete",
+                            value: 2,
+                            releaseAction: (() => root.deleteCurrentTab())
+                        },
+                        {
+                            displayName: "",
+                            icon: "draw",
+                            value: 3,
+                            releaseAction: (() => root.sketchEditorOpen = true)
+                        },
+                        {
+                            displayName: "",
+                            icon: "open_in_new",
+                            value: 4,
+                            releaseAction: (() => {
+                                const currentTab = root.tabsData.tabs[root.currentTabIndex];
+                                const noteId = currentTab?.noteId ?? "";
+                                GlobalStates.notesOpen = false;
+                                GlobalStates.openNotes(noteId);
+                            })
+                        }
+                    ]
+                }
+            }
+        }
+        
+        Loader {
+            Layout.fillWidth: true
+            active: Config.options.overlay.notes.showTabs
+            sourceComponent: RowLayout {
+                Layout.fillWidth: true
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                // Always loaded, and zero pixels tall until it is wanted. Reading the
+                // loaded item's height inside `active` — to keep it alive for the collapse
+                // animation — is a binding that depends on its own result, and Qt said so
+                // on every open.
+                TitleEditComp {
+                    Layout.fillWidth: false
+                }
+            }
+        }
+        
+        Keys.onPressed: event => {
+            if (event.key === Qt.Key_Delete && event.modifiers & Qt.ShiftModifier) {
+                root.deleteCurrentTab();
+            }
+        }
+
+        /**
+         * The drawing, when the note is one.
+         *
+         * A sketch note carries a path rather than pixels — notes.json is rewritten on
+         * every keystroke and a base64 PNG inside it would travel through that loop for
+         * every character typed in an unrelated tab. So the note shows the file, and the
+         * text field underneath stays exactly what it was, for anything the drawing needs
+         * said about it.
+         */
+        Loader {
+            id: sketchLoader
+            readonly property string sketchPath: root.currentSketch
+            Layout.fillWidth: true
+            Layout.maximumHeight: root.height * 0.55
+            active: sketchLoader.sketchPath.length > 0
+
+            sourceComponent: Rectangle {
+                implicitHeight: Math.min(sketchImage.implicitHeight + 20,
+                                         sketchLoader.Layout.maximumHeight)
+                radius: Appearance.rounding.normal
+                color: Appearance.colors.colLayer2
+
+                Image {
+                    id: sketchImage
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    source: `file://${sketchLoader.sketchPath}`
+                    fillMode: Image.PreserveAspectFit
+                    // Drawn on a surface of our own rather than on the wallpaper it was
+                    // made over, so the ink needs somewhere with contrast to sit.
+                    smooth: true
+                    asynchronous: true
+                }
+
+                // A file someone moved or deleted: the note still exists and still says
+                // what it is, instead of showing an empty box.
+                StyledText {
+                    anchors.centerIn: parent
+                    visible: sketchImage.status === Image.Error
+                    text: Translation.tr("This drawing's file is missing.")
+                    color: Appearance.colors.colSubtext
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                }
+
+                // Tap the drawing to carry on with it. The alternative — hunting for the
+                // pencil in the tab row — treats the picture as decoration rather than as
+                // the part of the note you came back to work on.
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.sketchEditorOpen = true
+                    StyledToolTip {
+                        text: Translation.tr("Tap to keep drawing")
+                    }
+                }
+            }
+        }
 
         ScrollView {
             id: editorScrollView
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.topMargin: -12
             clip: true
             ScrollBar.vertical.policy: ScrollBar.AsNeeded
             onWidthChanged: root.scheduleCopylistUpdate(true)
 
+            
+
             StyledTextArea { // This has to be a direct child of ScrollView for proper scrolling
                 id: textInput
-                anchors {
-                    left: parent.left
-                    right: parent.right
-                }
+                anchors.fill: parent
                 wrapMode: TextEdit.Wrap
+                implicitWidth: parent.implicitWidth - padding * 2 - 6
                 placeholderText: Translation.tr("Write something here...\nUse '-' to create copyable bullet points, like this:\n\nSheep fricker\n- 4x Slab\n- 1x Boat\n- 4x Redstone Dust\n- 1x Sticky Piston\n- 1x End Rod\n- 4x Redstone Repeater\n- 1x Redstone Torch\n- 1x Sheep")
                 selectByMouse: true
                 persistentSelection: true
                 textFormat: TextEdit.PlainText
                 background: null
-                padding: 24
+                padding: 12
 
                 onTextChanged: {
-                    if (textInput.activeFocus) {
-                        saveDebounce.restart();
-                    }
+                    saveDebounce.restart();
                     root.scheduleCopylistUpdate(true);
+                }
+
+                Keys.onPressed: event => {
+                    if (event.key === Qt.Key_Delete && event.modifiers & Qt.ShiftModifier) {
+                        root.deleteCurrentTab();
+                    }
                 }
                 
                 onHeightChanged: root.scheduleCopylistUpdate(true)
@@ -178,6 +464,10 @@ OverlayBackground {
                 onCursorPositionChanged: root.scheduleCopylistUpdate()
                 onSelectionStartChanged: root.scheduleCopylistUpdate()
                 onSelectionEndChanged: root.scheduleCopylistUpdate()
+
+                TouchpadScrollHandler {
+                    flickable: editorScrollView.contentItem
+                }
             }
 
             Item {
@@ -194,7 +484,7 @@ OverlayBackground {
                         required property var modelData
                         readonly property real lineHeight: Math.min(Math.max(modelData.height, Appearance.font.pixelSize.normal + 6), root.maxCopyButtonSize)
                         readonly property real iconSizeLocal: Appearance.font.pixelSize.normal
-                        readonly property real hitPadding: 6
+                        readonly property real hitPadding: 4
                         property bool justCopied: false
 
                         implicitHeight: lineHeight
@@ -202,7 +492,7 @@ OverlayBackground {
                         buttonRadius: height / 2
                         y: modelData.y
                         anchors.right: parent.right
-                        anchors.rightMargin: 10
+                        anchors.rightMargin: -hitPadding
                         z: 5
 
                         Timer {
@@ -239,7 +529,9 @@ OverlayBackground {
             Layout.fillWidth: true
             Layout.margins: 16
             horizontalAlignment: Text.AlignRight
-            text: saveDebounce.running ? Translation.tr("Saving...") : Translation.tr("Saved    ")
+            text: saveDebounce.running || NotesService.writing || NotesService.pendingData !== null
+                ? Translation.tr("Saving...")
+                : Translation.tr("Saved    ")
             color: Appearance.colors.colSubtext
         }
     }
@@ -248,7 +540,7 @@ OverlayBackground {
         id: saveDebounce
         interval: 500
         repeat: false
-        onTriggered: saveContent()
+        onTriggered: saveToFile()
     }
 
     Timer {
@@ -258,35 +550,90 @@ OverlayBackground {
         onTriggered: updateCopylistPositions()
     }
 
-    FileView {
-        id: noteFile
-        path: Qt.resolvedUrl(Directories.notesPath)
-        onLoaded: {
-            root.content = noteFile.text();
-            if (root.content !== root.content) {
-                const previousCursor = textInput.cursorPosition;
-                const previousAnchor = textInput.selectionStart;
-                root.content = root.content;
-                applySelection(previousCursor, previousAnchor);
-            }
-            if (pendingReload) {
-                pendingReload = false;
-                Qt.callLater(root.focusAtEnd);
-            }
-            Qt.callLater(root.updateCopyListEntries);
+    component TitleEditComp: Row {
+        id: row
+        spacing: 4
+
+        property bool editMode: root.tabEditModeEnabled
+        // The height *is* the state: fifty while editing, nothing otherwise, animated
+        // between the two. Nobody has to keep it alive to watch it fold away.
+        height: row.editMode ? 50 : 0
+        clip: true
+
+        function updateTitle(disableEditMode = false) {
+            let newTabs = root.tabsData.tabs.slice();
+            // Everything the tab already carried, with the two edited fields over the top.
+            // Rebuilt from scratch it lost its `noteId`, and a tab with no id is a tab the
+            // service has never seen: renaming one made a *second* note with the same text
+            // and left the first orphaned in the store.
+            newTabs[currentTabIndex] = Object.assign({}, newTabs[currentTabIndex], {
+                title: titleInput.text.split("\n")[0],  // only getting the first line
+                icon: iconInput.text.split("\n")[0]
+            });
+            
+            if (disableEditMode) root.tabEditModeEnabled = false;
+
+            root.tabsData = { tabs: newTabs };
+            NotesService.updateTabMetadata(currentTabIndex, newTabs[currentTabIndex].title, newTabs[currentTabIndex].icon);
         }
-        onLoadFailed: error => {
-            if (error === FileViewError.FileNotFound) {
-                root.content = "";
-                noteFile.setText(root.content);
-                if (pendingReload) {
-                    pendingReload = false;
-                    Qt.callLater(root.focusAtEnd);
-                }
-                Qt.callLater(root.updateCopyListEntries);
-            } else {
-                console.log("[Overlay Notes] Error loading file: " + error);
+
+        Behavior on height {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+        }
+
+        EditInput {
+            id: iconInput
+            visible: Config.options.overlay.notes.allowEditingIcon
+            placeholderText: Translation.tr("Icon")
+            text: root.tabsData.tabs[currentTabIndex].icon
+        }
+
+        EditInput {
+            id: titleInput
+            placeholderText: Translation.tr("Title")
+            text: root.tabsData.tabs[currentTabIndex].title
+        }        
+
+    }
+
+
+    /**
+     * The sketch editor, over the note it belongs to.
+     *
+     * A Loader so a note nobody is drawing in costs nothing: the editor carries two
+     * canvases and an image, and the notes panel is small and often open.
+     */
+    Loader {
+        anchors.fill: parent
+        active: root.sketchEditorOpen
+        z: 100
+
+        sourceComponent: NotesSketchEditor {
+            existingSketch: root.currentSketch
+
+            onSaved: path => {
+                NotesService.setSketch(root.currentTabIndex, path);
+                root.sketchEditorOpen = false;
+            }
+            onCancelled: root.sketchEditorOpen = false
+        }
+    }
+
+    component EditInput: MaterialTextArea {
+        property int textAreaPadding: 6
+
+        implicitWidth: 150
+        implicitHeight: parent.height
+        placeholderTextColor: height >= 40 ? Appearance.m3colors.m3outline : "transparent"  
+
+        Keys.onPressed: event => {
+            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                row.updateTitle(true);
             }
         }
+
+        anchors.top: parent.top
+        anchors.topMargin: -textAreaPadding
+        topInset: textAreaPadding
     }
 }

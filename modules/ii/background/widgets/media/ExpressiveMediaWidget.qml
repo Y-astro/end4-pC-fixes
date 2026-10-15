@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
 import Qt5Compat.GraphicalEffects
+import qs
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.common.functions
@@ -93,7 +94,7 @@ AbstractBackgroundWidget {
     readonly property color colProgressHighlight: useDynamicColors ? blendedColors.colPrimary : WidgetColorScheme.accentColor
     readonly property color colProgressTrack: useDynamicColors ? ColorUtils.transparentize(blendedColors.colOnSecondaryContainer, 0.6) : ColorUtils.transparentize(WidgetColorScheme.textColorOnPillFill, 0.6)
     readonly property color colBtnSecondary: useDynamicColors ? blendedColors.colTertiaryContainer : WidgetColorScheme.pillBgColor
-    readonly property color colBtnSecondary_hover: useDynamicColors ? ColorUtils.mix(blendedColors.colTertiaryContainer, blendedColors.colPrimary, 0.15) : ColorUtils.mix(WidgetColorScheme.pillBgColor, WidgetColorScheme.accentColor, 0.15)
+    readonly property color colBtnSecondaryHover: useDynamicColors ? ColorUtils.mix(blendedColors.colTertiaryContainer, blendedColors.colPrimary, 0.15) : ColorUtils.mix(WidgetColorScheme.pillBgColor, WidgetColorScheme.accentColor, 0.15)
     readonly property color colBtnSecondaryActive: useDynamicColors ? ColorUtils.mix(blendedColors.colTertiaryContainer, blendedColors.colPrimary, 0.25) : ColorUtils.mix(WidgetColorScheme.pillBgColor, WidgetColorScheme.accentColor, 0.25)
     readonly property color colBtnPlayBg: useDynamicColors ? blendedColors.colPrimary : WidgetColorScheme.accentColor
     readonly property color colBtnPlayRipple: useDynamicColors ? ColorUtils.mix(blendedColors.colPrimary, blendedColors.colOnPrimary, 0.2) : ColorUtils.mix(WidgetColorScheme.accentColor, WidgetColorScheme.onAccentColor, 0.2)
@@ -260,7 +261,7 @@ AbstractBackgroundWidget {
 
                         Timer {
                             id: rotationTimer
-                            running: root.player?.isPlaying && root.rotateAlbumArt
+                            running: (root.player?.isPlaying ?? false) && root.rotateAlbumArt
                             interval: 16  // ~60fps
                             repeat: true
                             onTriggered: albumArtItem._rotationAngle = (albumArtItem._rotationAngle + 0.6) % 360  // 360° in 10s
@@ -354,7 +355,7 @@ AbstractBackgroundWidget {
                                     ? StringUtils.friendlyTimeForSeconds(root.player.length) : "\u2013\u2013:\u2013\u2013"
                                 color: root.colTimeSub
                                 font.pixelSize: root.timerSecondarySize
-                                font.weight: Font.Regular
+                                font.weight: Font.Normal
                                 Layout.alignment: Qt.AlignTop
                                 Layout.topMargin: 4
                             }
@@ -364,7 +365,7 @@ AbstractBackgroundWidget {
                                 text: root.trackArtist
                                 color: root.colTimeSub
                                 font.pixelSize: root.timerSecondarySize
-                                font.weight: Font.Regular
+                                font.weight: Font.Normal
                                 Layout.maximumWidth: 150
                                 elide: Text.ElideRight
                                 horizontalAlignment: Text.AlignLeft

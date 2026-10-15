@@ -1,0 +1,4 @@
+module qs.modules.ii.background.widgets.visualizer
+VisualizerEngine 1.0 VisualizerEngine.qml
+VisualizerShader 1.0 VisualizerShader.qml
+VisualizerWidget 1.0 VisualizerWidget.qml

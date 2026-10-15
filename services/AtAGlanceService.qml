@@ -102,7 +102,7 @@ Singleton {
     readonly property bool emailAvailable: emailUnreadCount > 0
 
     // ── 7. LocalSend Transfers ────────────────────────────────────────────────
-    readonly property bool localSendActive: (options.enableLocalSend ?? true) && LocalSend.available && (LocalSend.currentTransfer !== null || LocalSend.sending)
+    readonly property bool localSendActive: (options.enableLocalSend ?? true) && typeof LocalSend !== "undefined" && LocalSend.available && (LocalSend.currentTransfer !== null || LocalSend.sending)
     readonly property string localSendTitle: localSendActive ? (LocalSend.sending ? Translation.tr("Sending file...") : Translation.tr("Receiving file...")) : ""
 
     // ── 8. KDE Connect Device ─────────────────────────────────────────────────
@@ -274,7 +274,7 @@ Singleton {
     }
 
     Connections {
-        target: LocalSend
+        target: typeof LocalSend !== "undefined" ? LocalSend : null
         function onCurrentTransferChanged() { root.refresh(); }
         function onSendingChanged() { root.refresh(); }
     }

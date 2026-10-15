@@ -34,7 +34,7 @@ AbstractBackgroundWidget {
         }
         return MprisController.activePlayer
     }
-    property var artUrl: currentPlayer?.trackArtUrl
+    property var artUrl: currentPlayer?.trackArtUrl ?? ""
     property string artDownloadLocation: Directories.coverArt
     property string artFileName: Qt.md5(artUrl)
     property string artFilePath: `${artDownloadLocation}/${artFileName}`

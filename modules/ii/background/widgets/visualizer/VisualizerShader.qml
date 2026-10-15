@@ -36,6 +36,7 @@ ShaderEffect {
 
     visible: fade > 0
     blending: true
+    vertexShader: Qt.resolvedUrl("shaders/compat.vert.qsb")
     fragmentShader: Qt.resolvedUrl(`shaders/${style}.frag.qsb`)
 
     Connections {

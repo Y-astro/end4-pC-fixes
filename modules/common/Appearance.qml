@@ -235,6 +235,7 @@ Singleton {
         property color colSecondaryContainerHover: ColorUtils.mix(m3colors.m3secondaryContainer, m3colors.m3onSecondaryContainer, 0.90)
         property color colSecondaryContainerActive: ColorUtils.mix(m3colors.m3secondaryContainer, m3colors.m3onSecondaryContainer, 0.54)
         property color colOnSecondaryContainer: m3colors.m3onSecondaryContainer
+        readonly property color colSecondaryOnContainer: m3colors.m3onSecondaryContainer
         // Tertiary
         property color colTertiary: m3colors.m3tertiary
         property color colTertiaryHover: ColorUtils.mix(m3colors.m3tertiary, colLayer1Hover, 0.85)

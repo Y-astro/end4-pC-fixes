@@ -169,12 +169,33 @@ Singleton {
 	}
 
 	function hasTrackLength(player): bool {
-		return (player?.length ?? 0) > 0;
+		return trackLengthOf(player) > 0;
+	}
+
+	function trackLengthOf(player): real {
+		if (!player) return 0;
+		if (player.lengthSupported !== undefined && !player.lengthSupported) return 0;
+		if (player.length === null || player.length === undefined) return 0;
+		const len = Number(player.length);
+		if (!Number.isFinite(len) || len <= 0) return 0;
+		return len;
+	}
+
+	function trackPositionOf(player): real {
+		if (!player) return 0;
+		if (player.position === null || player.position === undefined) return 0;
+		const pos = Number(player.position);
+		if (!Number.isFinite(pos)) return 0;
+		const clampedPos = Math.max(0, pos);
+		const len = trackLengthOf(player);
+		if (len > 0) return Math.min(clampedPos, len);
+		return clampedPos;
 	}
 
 	function trackProgressOf(player): real {
-		if (!player || (player.length ?? 0) <= 0) return 0;
-		return Math.max(0, Math.min(1, (player.position ?? 0) / player.length));
+		const len = trackLengthOf(player);
+		if (len <= 0) return 0;
+		return Math.max(0, Math.min(1, trackPositionOf(player) / len));
 	}
 
 	function seekFraction(player, fraction: real): void {

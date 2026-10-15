@@ -261,6 +261,8 @@ Singleton {
     // Other drivers have no such file; the poll still covers them.
     FileView {
         id: hwChangedView
+        // This notification node has no value until an actual hardware key event.
+        preload: false
         property bool armed: false
         path: root.deviceName ? `/sys/class/leds/${root.deviceName}/brightness_hw_changed` : ""
         watchChanges: true

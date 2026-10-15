@@ -89,6 +89,9 @@ Singleton {
         }
     }
 
+    // Kept for older Android media widgets using the original spelling.
+    function initiliazeLyrics() { root.restartLyrics(); }
+
     function restartLyrics() {
         lyricsProc.running = false
         root.lyricsLines = []

@@ -15,6 +15,8 @@ AbstractWidget {
     property int scaledScreenWidth: screenWidth
     property int scaledScreenHeight: screenHeight
     property real wallpaperScale: 1
+    readonly property real renderScale: root.scale
+    readonly property bool _resizeActive: root.dragging
 
     property Item wallpaperItem: null
     property bool paused: false

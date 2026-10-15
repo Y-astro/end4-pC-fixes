@@ -193,7 +193,7 @@ MouseArea {
         root.groupDragStartX = initiator.x
         root.groupDragStartY = initiator.y
         root.groupDragMemberStarts = root.registeredWidgets
-            .filter(w => w.selected && w !== initiator)
+            .filter(w => w.selected && w !== initiator && w.draggable && !w.pinnedBottom)
             .map(w => ({ widget: w, startX: w.x, startY: w.y }))
         for (const entry of root.groupDragMemberStarts) entry.widget.groupDragActive = true
     }

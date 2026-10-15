@@ -1087,7 +1087,10 @@ Item {
                         active: index <= root.loadedCellCount
                         asynchronous: root.incubateAsync
 
-                        onLoaded: root.advanceCellLoading(index)
+                        onLoaded: {
+                            const cellIndex = index;
+                            Qt.callLater(() => root.advanceCellLoading(cellIndex));
+                        }
 
                         sourceComponent: MonthDayCell {
                             cellData: cellLoader.modelData

@@ -184,6 +184,7 @@ Rectangle {
             MaterialTextField {
                 id: textFieldWidget
                 Layout.fillWidth: true
+                implicitWidth: 120
             }
 
             Loader {

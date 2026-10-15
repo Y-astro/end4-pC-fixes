@@ -6,6 +6,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import "timetable"
@@ -13,6 +14,13 @@ import "settings"
 
 Scope {
     id: root
+    IpcHandler {
+        target: "cheatsheet"
+        function open(): void { root.requestOpen(); }
+        function close(): void { root.requestClose(); }
+        function toggle(): void { root.requestToggle(); }
+        function openTab(tab: string): void { GlobalStates.openCheatsheet(tab); }
+    }
     // Small session-only overrides protect a recent user choice from a stale
     // FileView notification. The durable value is still written to Persistent;
     // these scalars disappear with the shell and do not retain page trees.

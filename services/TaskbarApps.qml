@@ -13,6 +13,7 @@ Singleton {
     FileView {
         path: Quickshell.env("HOME") + "/.local/share/icons/DynamicTheme.colhash"
         watchChanges: true
+        preload: false
         onFileChanged: if (!root.iconPackApplying) iconRedrawTimer.restart()
     }
     Timer {

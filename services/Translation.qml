@@ -47,18 +47,21 @@ Singleton {
         }
     }
 
-    onLanguageCodeChanged: {
-        print("[Translation] Language changed to", root.languageCode);
-        translationFileView.languageCode = root.languageCode;
-        generatedTranslationFileView.languageCode = root.languageCode;
-        translationFileView.reread();
-        generatedTranslationFileView.reread();
+    // Auto locales such as en_GB use the shipped en_US catalogue. Generated
+    // overrides are optional and are read only when the scanner finds one.
+    readonly property string catalogueLanguage: {
+        if (root.availableLanguages.includes(root.languageCode)) return root.languageCode;
+        const prefix = root.languageCode.split("_")[0] + "_";
+        return root.availableLanguages.find(language => language.startsWith(prefix)) ?? "en_US";
     }
+    readonly property string generatedLanguage: root.availableGeneratedLanguages.includes(root.languageCode)
+        ? root.languageCode : (root.availableGeneratedLanguages.includes(root.catalogueLanguage) ? root.catalogueLanguage : "")
+    onLanguageCodeChanged: print("[Translation] Language changed to", root.languageCode)
 
     TranslationReader {
         id: translationFileView
         translationsDir: root.translationsDir
-        languageCode: root.languageCode
+        languageCode: root.catalogueLanguage
         onContentLoaded: (data) => {
             root.translations = data;
             root.isLoading = false;
@@ -68,7 +71,7 @@ Singleton {
     TranslationReader {
         id: generatedTranslationFileView
         translationsDir: root.generatedTranslationsDir
-        languageCode: root.languageCode
+        languageCode: root.generatedLanguage
         onContentLoaded: (data) => {
             root.generatedTranslations = data;
             root.isLoading = false;
@@ -121,8 +124,18 @@ Singleton {
         property string languageCode: root.languageCode
         signal contentLoaded(var data)
 
-        function reread() { // Proper reload in case the file was incorrect before
+        property bool initialized: false
+        Component.onCompleted: {
+            initialized = true;
+            reread();
+        }
+        onLanguageCodeChanged: if (initialized) reread()
+        function reread() {
             translationReader.path = "";
+            if (!translationReader.languageCode) {
+                translationReader.contentLoaded({});
+                return;
+            }
             translationReader.path = `${translationReader.translationsDir}/${translationReader.languageCode}.json`;
             translationReader.reload();
         }

@@ -30,6 +30,7 @@ import qs.modules.ii.frame
 import qs.modules.ii.clock
 import qs.modules.ii.easyEffects
 import qs.modules.ii.modes
+import qs.modules.ii.usage
 import qs.modules.ii.notes
 import qs.modules.ii.cheatsheet
 import qs.modules.ii.alarmRingingPopup
@@ -59,6 +60,7 @@ Scope {
     PanelUrlLoader { panelUrl: Qt.resolvedUrl("../modules/ii/clock/ClockApp.qml") }
     PanelUrlLoader { panelUrl: Qt.resolvedUrl("../modules/ii/easyEffects/EasyEffectsApp.qml") }
     PanelUrlLoader { panelUrl: Qt.resolvedUrl("../modules/ii/modes/ModesApp.qml") }
+    PanelUrlLoader { panelUrl: Qt.resolvedUrl("../modules/ii/usage/UsageApp.qml") }
     PanelUrlLoader { extraCondition: Config.options.notes.enable; panelUrl: Qt.resolvedUrl("../modules/ii/notes/NotesApp.qml") }
     PanelUrlLoader { panelUrl: Qt.resolvedUrl("../modules/ii/cheatsheet/Cheatsheet.qml") }
     PanelUrlLoader { panelUrl: Qt.resolvedUrl("../modules/ii/alarmRingingPopup/AlarmRingingPopup.qml") }

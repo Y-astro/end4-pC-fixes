@@ -106,14 +106,14 @@ Singleton {
             id: languagesCollector
             onStreamFinished: {
                 const output = languagesCollector.text;
-                const files = output.trim().split('\n').map(f => f.trim());
+                const files = output.trim().split('\n').map(f => f.trim()).filter(Boolean);
                 translationScanner.languagesScanned(files);
             }
         }
 
         onExited: (exitCode, exitStatus) => {
             if (exitCode !== 0) {
-                translationScanner.languagesScanned(["en_US"]);
+                translationScanner.languagesScanned([]);
             }
         }
     }

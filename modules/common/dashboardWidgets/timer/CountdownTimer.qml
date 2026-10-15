@@ -55,7 +55,7 @@ Item {
     function toggleCountdown(timer) {
         if (!timer) return;
         if (timer.notified) TimerService.restartCountdown(timer.id);
-        else TimerService.toggleCountdown(timer.id);
+        else TimerService.toggleNamedCountdown(timer.id);
     }
 
     function handleKey(event) {
@@ -156,7 +156,7 @@ Item {
             required property int index
             readonly property int secondsLeft: {
                 root.displayTick; // Re-evaluate while the timer runs
-                return TimerService.countdownSecondsLeft(countdownItem.modelData);
+                return TimerService.countdownRemainingSeconds(countdownItem.modelData);
             }
             readonly property bool done: countdownItem.modelData?.notified ?? false
             readonly property bool paused: countdownItem.modelData?.paused ?? false

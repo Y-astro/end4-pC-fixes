@@ -61,8 +61,15 @@ AbstractWidget {
         const newX = Math.max(0, Math.min(root.x, root.scaledScreenWidth - root.width));
         const newY = Math.max(0, Math.min(root.y, root.scaledScreenHeight - root.height));
         if (root.editInstanceId) {
-            Config.options.background.activeWidgets = Config.options.background.activeWidgets.map(entry =>
-                entry.id === root.editInstanceId ? Object.assign({}, entry, { x: newX, y: newY, z: root.z }) : entry);
+            const instanceId = root.editInstanceId;
+            const newZ = root.z;
+            // Replacing the model synchronously destroys the delegate. Finish
+            // the release handlers first; the replacement restores its bindings.
+            Qt.callLater(() => {
+                Config.options.background.activeWidgets = Config.options.background.activeWidgets.map(entry =>
+                    entry.id === instanceId ? Object.assign({}, entry, { x: newX, y: newY, z: newZ }) : entry);
+            });
+            return;
         } else {
             configEntry.x = newX;
             configEntry.y = newY;

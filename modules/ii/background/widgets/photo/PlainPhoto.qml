@@ -65,11 +65,11 @@ AbstractBackgroundWidget {
                                      && !GlobalStates.activeWorkspaceHasWindows
 
     // Decode box: the shown size times the window's DPR (high-water mark - it
-    // churns while the window is set up) and the render scale, quantised so
-    // small changes do not re-decode, and held while the resize grip runs.
+    // churns while the window is set up) and the scale, quantised so
+    // small changes do not re-decode, and held while dragging.
     readonly property real windowDpr: Math.max(1, (QsWindow.window as QsWindow)?.devicePixelRatio ?? 1)
     property real dprLatched: 1
-    readonly property real decodeScale: root.dprLatched * root.renderScale
+    readonly property real decodeScale: root.dprLatched * root.scale
     property int decodeWidth: 0
     property int decodeHeight: 0
 
@@ -78,7 +78,7 @@ AbstractBackgroundWidget {
             root.dprLatched = root.windowDpr;
     }
     function updateDecodeBox() {
-        if (root._resizeActive || root.width <= 0 || root.height <= 0)
+        if (root.dragging || root.width <= 0 || root.height <= 0)
             return;
         root.decodeWidth = Math.ceil(root.width * root.decodeScale / 64) * 64;
         root.decodeHeight = Math.ceil(root.height * root.decodeScale / 64) * 64;
@@ -88,7 +88,7 @@ AbstractBackgroundWidget {
     onDecodeScaleChanged: root.updateDecodeBox()
     onWidthChanged: root.updateDecodeBox()
     onHeightChanged: root.updateDecodeBox()
-    on_ResizeActiveChanged: root.updateDecodeBox()
+    onDraggingChanged: root.updateDecodeBox()
     Component.onCompleted: {
         root.updateDpr();
         root.updateDecodeBox();

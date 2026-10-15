@@ -1,5 +1,5 @@
 import qs
-import qs.modules.ii.bar.shared
+import qs.modules.ii.bar.shared as BarShared
 import qs.modules.common
 import qs.modules.common.widgets
 import "../../shared/cards"
@@ -10,7 +10,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 
-StyledPopup {
+BarShared.StyledPopup {
     id: root
     popupId: "clock"
     popupRadius: Appearance.rounding.large

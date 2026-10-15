@@ -90,11 +90,11 @@ ComboBox {
                         && typeof root.model[root.currentIndex] === 'object'
                         && (root.iconSourceRole.length === 0
                             || String(root.model[root.currentIndex]?.[root.iconSourceRole] ?? "").length === 0)
-                        && root.model[root.currentIndex]?.icon)
+                        && !!root.model[root.currentIndex]?.icon)
                 visible: active
                 sourceComponent: MaterialSymbol {
                     text: {
-                        if (root.currentIndex >= 0 && typeof root.model[root.currentIndex] === 'object' && root.model[root.currentIndex]?.icon) {
+                        if (root.currentIndex >= 0 && typeof root.model[root.currentIndex] === 'object' && !!root.model[root.currentIndex]?.icon) {
                             return root.model[root.currentIndex].icon;
                         }
                         return root.buttonIcon;

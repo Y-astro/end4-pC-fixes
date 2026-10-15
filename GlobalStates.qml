@@ -29,6 +29,13 @@ Singleton {
         if (root.sidebarLeftOpen)
             root.activeLeftSidebarMonitor = Hyprland.focusedMonitor?.name ?? Quickshell.primaryScreen?.name ?? "";
     }
+    // Used by photos to pause animation while an application is in front.
+    readonly property bool activeWorkspaceHasWindows: {
+        const workspaceId = WM.activeWorkspace?.id ?? HyprlandData.activeWorkspace?.id;
+        if (workspaceId === undefined || workspaceId === null) return false;
+        return (WM.windowList ?? []).some(window => String(window.workspaceId ?? window.workspace?.id) === String(workspaceId));
+    }
+    property string recordingToolbarSection: ""
     property bool mediaControlsOpen: false
     property bool mediaHovered: false
     property bool mediaDropdownHovered: false
@@ -43,6 +50,14 @@ Singleton {
     property bool policiesDetached: false
     property string policiesRequestTabIcon: ""
     property string phoneRequestSubPage: ""
+    // The lazy phone services publish these flags when their streams change.
+    property bool phoneCameraRunning: false
+    property bool phoneMicRunning: false
+    property bool discordClientSeen: false
+    readonly property var discordClasses: ["discord", "discord-canary", "discordcanary", "discord-ptb", "discordptb", "vesktop", "equibop", "webcord", "legcord", "armcord"]
+    readonly property bool discordWindowOpen: !root.discordClientSeen && (WM.windowList ?? []).some(window => root.discordClasses.includes(String(window.appId ?? window.class ?? "").toLowerCase()))
+    onDiscordWindowOpenChanged: if (root.discordWindowOpen) Qt.callLater(() => root.discordClientSeen = true)
+
     property bool settingsOpen: false
     property bool settingsSuspendedForScreenshot: false
     property int settingsPendingPage: -1
@@ -637,5 +652,88 @@ Singleton {
         onPressed: {
             root.requestMediaMode("toggle");
         }
+    }
+
+    // ── Bar Popups IPC State ───────────────────────────────────────────────────
+    property var openBarPopups: ({})
+    property string activeBarPopupMonitor: ""
+    readonly property bool anyBarPopupOpen: Object.keys(openBarPopups).length > 0
+
+    readonly property var _barPopupAliases: ({
+        "clock": "clock", "calendar": "clock", "date": "clock", "time": "clock",
+        "weather": "weather",
+        "battery": "battery",
+        "bluetooth": "bluetooth",
+        "resources": "resources", "systemmonitor": "resources", "usage": "resources",
+        "keyboard": "keyboard", "keyboardlayout": "keyboard", "layout": "keyboard",
+        "activewindow": "activeWindow", "window": "activeWindow",
+        "sports": "sports",
+        "portwatcher": "portWatcher", "ports": "portWatcher",
+        "privacy": "privacy",
+        "aiplanusage": "aiPlanUsage", "aiplan": "aiPlanUsage",
+        "media": "media", "mediacontrols": "media",
+        "tray": "tray", "systray": "tray",
+        "record": "record", "screenrecord": "record",
+        "dictation": "dictation",
+        "mode": "mode", "modes": "mode",
+        "screenshare": "screenShare", "share": "screenShare"
+    })
+
+    function normalizeBarPopupId(id) {
+        if (!id)
+            return "";
+        return _barPopupAliases[String(id).toLowerCase()] ?? String(id);
+    }
+
+    function isBarPopupOpen(popupId, screenName) {
+        const key = root.normalizeBarPopupId(popupId);
+        if (!key || !root.openBarPopups[key])
+            return false;
+        return !root.activeBarPopupMonitor || root.activeBarPopupMonitor === screenName;
+    }
+
+    function setBarPopupOpen(popupId, open, monitorName) {
+        const key = root.normalizeBarPopupId(popupId);
+        if (!key)
+            return;
+
+        if (open && monitorName !== undefined && monitorName !== "")
+            root.activeBarPopupMonitor = monitorName;
+
+        let updated = Object.assign({}, root.openBarPopups);
+        if (open) {
+            updated[key] = true;
+            if (key === "media")
+                root.mediaControlsOpen = true;
+        } else {
+            delete updated[key];
+            if (key === "media")
+                root.mediaControlsOpen = false;
+        }
+        root.openBarPopups = updated;
+
+        if (!open && !root.anyBarPopupOpen)
+            root.activeBarPopupMonitor = "";
+    }
+
+    function openBarPopup(popupId, monitorName) {
+        root.setBarPopupOpen(popupId, true, monitorName);
+    }
+
+    function closeBarPopup(popupId, monitorName) {
+        root.setBarPopupOpen(popupId, false, monitorName);
+    }
+
+    function toggleBarPopup(popupId, monitorName) {
+        if (root.isBarPopupOpen(popupId, monitorName))
+            root.closeBarPopup(popupId, monitorName);
+        else
+            root.openBarPopup(popupId, monitorName);
+    }
+
+    function closeAllBarPopups() {
+        root.openBarPopups = ({});
+        root.mediaControlsOpen = false;
+        root.activeBarPopupMonitor = "";
     }
 }

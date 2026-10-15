@@ -1,4 +1,4 @@
-import qs.modules.ii.bar.shared
+import qs.modules.ii.bar.shared as BarShared
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
@@ -9,7 +9,7 @@ import QtQuick.Layouts
 import Quickshell.Io
 import qs.modules.ii.bar
 
-StyledPopup {
+BarShared.StyledPopup {
     id: root
     popupId: "weather"
     popupRadius: Appearance.rounding.large

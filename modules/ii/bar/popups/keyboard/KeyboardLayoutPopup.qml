@@ -1,4 +1,4 @@
-import qs.modules.ii.bar.shared
+import qs.modules.ii.bar.shared as BarShared
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.services
@@ -7,7 +7,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 
-StyledPopup {
+BarShared.StyledPopup {
     id: root
     popupId: "keyboard"
     stickyHover: true

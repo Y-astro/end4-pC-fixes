@@ -4,6 +4,15 @@ import Quickshell
 Singleton {
     id: root
 
+    // Qt uses a 12h clock when the format contains an unquoted am/pm field (a, A, ap or AP).
+    // Text inside single quotes is fixed text, so it must not count.
+    function is12HourTimeFormat(format) {
+        if (!format)
+            return false;
+
+        return /[aA]/.test(String(format).replace(/'[^']*'/g, ""));
+    }
+
     function getFirstDayOfWeek(date, firstDay = 1) {
         const d = new Date(date); // Copy
         const day = d.getDay();   // 0 = Sunday, 1 = Monday, ..., 6 = Saturday

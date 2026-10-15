@@ -1,6 +1,5 @@
-import qs.modules.ii.bar.shared
+import qs.modules.ii.bar.shared as BarShared
 import qs.modules.ii.bar
-import qs.modules.ii.bar.widgets.resources
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
@@ -10,8 +9,9 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 import Qt5Compat.GraphicalEffects
 import "../../shared/cards"
+import "../../widgets/resources" as ResourceWidgets
 
-StyledPopup {
+BarShared.StyledPopup {
     id: root
     popupId: "resources"
     popupRadius: Appearance.rounding.large
@@ -2155,7 +2155,7 @@ StyledPopup {
             }
 
             // ── Docker section ────────────────────────────────────────────────
-            DockerSection {
+            ResourceWidgets.DockerSection {
                 implicitWidth: 380
             }
         }

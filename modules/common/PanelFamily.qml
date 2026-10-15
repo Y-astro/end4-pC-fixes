@@ -22,7 +22,15 @@ Singleton {
     readonly property string current: Config.options?.panelFamily ?? "ii"
 
     readonly property bool isIi: root.current === "ii"
-    readonly property bool isTablet: root.current === "tablet"
+    readonly property bool isTablet: {
+        const cur = root.current;
+        if (!cur)
+            return false;
+        return root.available.some(family => {
+            const isTabletFamily = family.id === "tablet" || (typeof family.name === "string" && family.name.toLowerCase() === "tablet");
+            return isTabletFamily && (family.id === cur || family.name === cur);
+        });
+    }
     readonly property bool isWaffle: root.current === "waffle"
 
     /**
@@ -121,7 +129,15 @@ Singleton {
     // ── Capabilities ────────────────────────────────────────────────────────
     // Every finger-driven surface: no hover intent, larger hit targets, gestures
     // instead of corner triggers.
-    readonly property bool touchFirst: root.isTablet
+    readonly property bool touchFirst: {
+        const cur = root.current;
+        if (!cur)
+            return false;
+        const fam = root.available.find(family => family.id === cur || family.name === cur);
+        if (fam)
+            return fam.id === "tablet" || (typeof fam.name === "string" && fam.name.toLowerCase() === "tablet") || Boolean(fam.description && fam.description.startsWith("Touch-first"));
+        return Boolean(root.isTablet);
+    }
 
     // The bar is a status bar at the top of the screen and the user cannot move it.
     readonly property bool pinsBarToTop: root.isTablet

@@ -281,7 +281,7 @@ Singleton {
     /// The lock screen and the capture overlays own the whole screen; nothing should
     /// open underneath them because a hand brushed the touchpad.
     readonly property bool blocked: GlobalStates.screenLocked || GlobalStates.regionSelectorOpen
-        || GlobalStates.screenshotOverlayOpen
+        || (GlobalStates.screenshotOverlayOpen ?? false)
 
     function focusedScreenName(): string {
         return Hyprland.focusedMonitor?.name ?? "";

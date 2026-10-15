@@ -8,21 +8,112 @@ MouseArea {
     acceptedButtons: Qt.LeftButton | Qt.RightButton
     signal contextRequested(real positionX, real positionY)
     readonly property var selectedWidgets: registeredWidgets.filter(widget => widget.selected)
+    function commitWidgetPositions(items) {
+        if (!items || items.length === 0) return
+
+        // 1. Snapshot all numeric final coordinates, IDs, and z first
+        const snapshots = []
+        const registryUpdates = {}
+        let hasRegistryUpdates = false
+
+        for (const item of items) {
+            const w = item.widget
+            if (!w) continue
+            const screenW = w.scaledScreenWidth !== undefined ? w.scaledScreenWidth : root.width
+            const screenH = w.scaledScreenHeight !== undefined ? w.scaledScreenHeight : root.height
+            const clampedX = Math.max(0, Math.min(item.finalX, Math.max(0, screenW - w.width)))
+            const clampedY = Math.max(0, Math.min(item.finalY, Math.max(0, screenH - w.height)))
+            const finalZ = item.finalZ !== undefined ? item.finalZ : w.z
+            const instanceId = w.editInstanceId || ""
+
+            snapshots.push({
+                widget: w,
+                instanceId: instanceId,
+                x: clampedX,
+                y: clampedY,
+                z: finalZ
+            })
+
+            if (instanceId) {
+                registryUpdates[instanceId] = { x: clampedX, y: clampedY, z: finalZ }
+                hasRegistryUpdates = true
+            }
+        }
+
+        // Snapshot selected widget IDs to restore after model replacement
+        const selectedIds = root.selectedWidgets.map(w => w.editInstanceId || w.configEntryName || "").filter(Boolean)
+
+        // 2. Apply legacy configEntry.x/y/z while legacy objects alive
+        for (const snap of snapshots) {
+            if (!snap.instanceId) {
+                const w = snap.widget
+                if (w.configEntry) {
+                    w.configEntry.x = snap.x
+                    w.configEntry.y = snap.y
+                    w.configEntry.z = snap.z
+                }
+                const screenW = w.scaledScreenWidth !== undefined ? w.scaledScreenWidth : root.width
+                const screenH = w.scaledScreenHeight !== undefined ? w.scaledScreenHeight : root.height
+                if (typeof w.restoreXYBinding === "function") {
+                    w.targetX = Qt.binding(() => Math.max(0, Math.min(w.configEntry ? w.configEntry.x : snap.x, screenW - w.width)))
+                    w.targetY = Qt.binding(() => Math.max(0, Math.min(w.configEntry ? w.configEntry.y : snap.y, screenH - w.height)))
+                    w.targetZ = Qt.binding(() => w.configEntry ? w.configEntry.z : snap.z)
+                    w.restoreXYBinding()
+                } else {
+                    w.x = snap.x
+                    w.y = snap.y
+                    w.z = snap.z
+                }
+            }
+        }
+
+        // 3. ONE activeWidgets.map replacement for registry snapshots
+        // Avoid accessing widget references after registry model replacement.
+        if (hasRegistryUpdates && Config.options?.background?.activeWidgets) {
+            // Release callbacks on the initiating widget must finish before
+            // replacing the model destroys their objects.
+            Qt.callLater(() => {
+                Config.options.background.activeWidgets = Config.options.background.activeWidgets.map(entry => {
+                    const update = registryUpdates[entry.id]
+                    return update ? Object.assign({}, entry, { x: update.x, y: update.y, z: update.z }) : entry
+                })
+
+            // 4. Preserve legacy behaviors and restore selected widgets by ID next event-loop turn if model replacement recreates them
+            if (selectedIds.length > 0) {
+                Qt.callLater(() => {
+                    for (const w of root.registeredWidgets) {
+                        const id = w.editInstanceId || w.configEntryName || ""
+                        if (id && selectedIds.includes(id)) {
+                            w.selected = true
+                        }
+                    }
+                })
+            }
+            })
+        }
+    }
+
     function alignSelection(mode) {
-        const widgets = root.selectedWidgets.filter(widget => widget.draggable && !widget.pinnedBottom);
+        const widgets = root.selectedWidgets.filter(widget => widget.draggable && !widget.pinnedBottom)
+        if (widgets.length === 0) return
         const members = widgets.map((widget, index) => ({
             id: String(index), x: widget.x, y: widget.y, box: { x: widget.x, y: widget.y, width: widget.width, height: widget.height },
             minX: 0, maxX: Math.max(0, root.width - widget.width),
             minY: 0, maxY: Math.max(0, root.height - widget.height)
-        }));
-        const changes = WidgetAlign.deltas(members, mode);
+        }))
+        const changes = WidgetAlign.deltas(members, mode)
+        const items = []
         widgets.forEach((widget, index) => {
-            const delta = changes[String(index)];
-            if (!delta) return;
-            widget.x += delta.dx;
-            widget.y += delta.dy;
-            widget.commitPosition();
-        });
+            const delta = changes[String(index)]
+            if (!delta) return
+            items.push({
+                widget: widget,
+                finalX: widget.x + delta.dx,
+                finalY: widget.y + delta.dy,
+                finalZ: widget.z
+            })
+        })
+        root.commitWidgetPositions(items)
     }
     onClicked: mouse => {
         if (mouse.button === Qt.RightButton && !GlobalStates.screenLocked)
@@ -41,6 +132,7 @@ MouseArea {
     property point selectionStartPoint: Qt.point(0, 0)
     property rect selectionRect: Qt.rect(0, 0, 0, 0)
 
+    property var groupDragInitiator: null
     property var groupDragMemberStarts: []
     property real groupDragStartX: 0
     property real groupDragStartY: 0
@@ -93,9 +185,11 @@ MouseArea {
 
     function beginGroupDrag(initiator) {
         if (!initiator.selected) {
+            root.groupDragInitiator = null
             root.groupDragMemberStarts = []
             return
         }
+        root.groupDragInitiator = initiator
         root.groupDragStartX = initiator.x
         root.groupDragStartY = initiator.y
         root.groupDragMemberStarts = root.registeredWidgets
@@ -115,11 +209,38 @@ MouseArea {
     }
 
     function endGroupDrag() {
-        for (const entry of root.groupDragMemberStarts) {
-            entry.widget.groupDragActive = false
-            entry.widget.commitPosition()
-        }
+        const members = root.groupDragMemberStarts
+        const initiator = root.groupDragInitiator
         root.groupDragMemberStarts = []
+        root.groupDragInitiator = null
+
+        if (members.length === 0) return
+
+        for (const entry of members) {
+            if (entry.widget) entry.widget.groupDragActive = false
+        }
+
+        const items = []
+        if (initiator) {
+            items.push({
+                widget: initiator,
+                finalX: initiator.x,
+                finalY: initiator.y,
+                finalZ: initiator.z
+            })
+        }
+        for (const entry of members) {
+            if (entry.widget && entry.widget !== initiator) {
+                items.push({
+                    widget: entry.widget,
+                    finalX: entry.widget.x,
+                    finalY: entry.widget.y,
+                    finalZ: entry.widget.z
+                })
+            }
+        }
+
+        root.commitWidgetPositions(items)
     }
 
     onPressed: (mouse) => {

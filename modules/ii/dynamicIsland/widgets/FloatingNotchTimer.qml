@@ -282,7 +282,7 @@ Item {
                         if (root.isAlarm) {
                             GlobalStates.openClockApp("alarms");
                         } else if (root.isCountdown) {
-                            TimerService.toggleCountdown(root.countdown.id);
+                            TimerService.toggleNamedCountdown(root.countdown.id);
                         } else if (root.isPomodoro) {
                             TimerService.togglePomodoro();
                         } else {

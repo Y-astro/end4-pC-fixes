@@ -45,6 +45,7 @@ Singleton {
         root._instantiatedModels = ({});
     }
 
+    // LocalSend and Soundcore are excluded: this shell has no corresponding backend.
     readonly property var _modelComponentMap: ({
         "network": networkComp,
         "bluetooth": bluetoothComp,
@@ -76,9 +77,7 @@ Singleton {
         "speedTest": speedTestComp,
         "antiFlashbang": antiFlashbangComp,
         "screenShader": screenShaderComp,
-        "soundcoreAnc": soundcoreAncComp,
         "systemSounds": systemSoundsComp,
-        "localSend": localSendComp,
         "keyboardBacklight": keyboardBacklightComp,
         "laptopKeyboard": laptopKeyboardComp,
         "modes": modesComp
@@ -115,9 +114,7 @@ Singleton {
         { id: "speedTest", keywords: ["speed", "test", "internet", "bandwidth"], get model() { return root.getModel("speedTest"); } },
         { id: "antiFlashbang", keywords: ["flash", "brightness", "brilho"], get model() { return root.getModel("antiFlashbang"); } },
         { id: "screenShader", keywords: ["shader", "screen", "tela"], get model() { return root.getModel("screenShader"); } },
-        { id: "soundcoreAnc", keywords: ["anc", "noise", "cancelamento"], get model() { return root.getModel("soundcoreAnc"); } },
         { id: "systemSounds", keywords: ["system sounds", "sons", "sistema"], get model() { return root.getModel("systemSounds"); } },
-        { id: "localSend", keywords: ["localsend", "send", "enviar"], get model() { return root.getModel("localSend"); } },
         { id: "keyboardBacklight", keywords: ["backlight", "keyboard", "teclado"], get model() { return root.getModel("keyboardBacklight"); } },
         { id: "laptopKeyboard", keywords: ["laptop", "keyboard", "teclado", "builtin", "internal"], get model() { return root.getModel("laptopKeyboard"); } },
         { id: "modes", keywords: ["modes", "routines", "rotinas"], get model() { return root.getModel("modes"); } }

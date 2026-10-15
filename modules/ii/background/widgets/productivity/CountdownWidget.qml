@@ -48,7 +48,7 @@ ExpressiveCardWidget {
     readonly property bool timerPaused: root.current?.paused === true
     readonly property int secondsLeft: {
         TimerService.countdownTick;
-        return root.current ? TimerService.countdownSecondsLeft(root.current) : 0;
+        return root.current ? TimerService.countdownRemainingSeconds(root.current) : 0;
     }
     readonly property real leftFraction: {
         if (!root.current)
@@ -200,7 +200,7 @@ ExpressiveCardWidget {
                 if (root.finished)
                     TimerService.restartCountdown(root.current.id);
                 else
-                    TimerService.toggleCountdown(root.current.id);
+                    TimerService.toggleNamedCountdown(root.current.id);
             }
         }
 

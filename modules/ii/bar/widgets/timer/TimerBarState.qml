@@ -35,7 +35,7 @@ QtObject {
         root.countdownTick;
         return TimerBarLogic.prioritizedCountdowns(
             TimerService.countdowns,
-            countdown => TimerService.countdownSecondsLeft(countdown)
+            countdown => TimerService.countdownRemainingSeconds(countdown)
         );
     }
     readonly property var primaryCountdown: root.activeCountdowns[0] ?? null
@@ -46,7 +46,7 @@ QtObject {
     readonly property int countdownSecondsLeft: {
         root.countdownTick;
         return root.primaryCountdown
-            ? TimerService.countdownSecondsLeft(root.primaryCountdown)
+            ? TimerService.countdownRemainingSeconds(root.primaryCountdown)
             : 0;
     }
 
@@ -112,6 +112,6 @@ QtObject {
 
     function toggleCountdown() {
         if (root.primaryCountdown)
-            TimerService.toggleCountdown(root.primaryCountdown.id);
+            TimerService.toggleNamedCountdown(root.primaryCountdown.id);
     }
 }

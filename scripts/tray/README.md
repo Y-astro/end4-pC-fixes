@@ -2,8 +2,8 @@
 
 Keeps system tray icons alive across a shell restart.
 
-**Binary:** `~/.config/quickshell/ii/scripts/tray/sni_watcher`
-**Source:** `~/.config/quickshell/ii/scripts/tray/sni_watcher_src/`
+**Binary:** `~/.config/quickshell/end4-pC/scripts/tray/sni_watcher`
+**Source:** `~/.config/quickshell/end4-pC/scripts/tray/sni_watcher_src/`
 
 ## Why a helper is needed
 
@@ -64,7 +64,7 @@ is lost.
 ## Building
 
 ```bash
-~/.config/quickshell/ii/scripts/rust-helpers.sh build sni_watcher
+~/.config/quickshell/end4-pC/scripts/rust-helpers.sh build sni_watcher
 ```
 
 Pure Rust (`zbus`), so there is nothing to install beyond a Rust toolchain.

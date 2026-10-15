@@ -106,7 +106,7 @@ AndroidQuickToggleButton {
         if (root.isCountdown) {
             const tick = root.displayTick;
             return root.currentCountdown
-                ? root.formatDuration(TimerService.countdownSecondsLeft(root.currentCountdown))
+                ? root.formatDuration(TimerService.countdownRemainingSeconds(root.currentCountdown))
                 : "--:--";
         }
         return root.formatDuration(TimerService.pomodoroSecondsLeft);
@@ -154,7 +154,7 @@ AndroidQuickToggleButton {
         }
         if (root.isCountdown) {
             if (root.currentCountdown) {
-                TimerService.toggleCountdown(root.currentCountdown.id);
+                TimerService.toggleNamedCountdown(root.currentCountdown.id);
             } else if (TimerService.draftCountdownSeconds() > 0) {
                 TimerService.startDraftCountdown();
             } else {

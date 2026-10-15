@@ -71,6 +71,7 @@ Singleton {
     property string localMediaCoverCache: FileUtils.trimFileProtocol(`${Directories.cache}/media/local-media/covers`)
     property string localMediaLyricsCache: FileUtils.trimFileProtocol(`${Directories.cache}/media/local-media/lyrics`)
     property string phoneShare: FileUtils.trimFileProtocol(`${Directories.cache}/phone-share`)
+    property string localSendDownloadPath: `${Directories.downloads || (Directories.home + "/Downloads")}/localsend`
     property string localPreferencesName: "local-preferences.json"
     property string localPreferencesPath: `${Directories.shellConfig}/${Directories.localPreferencesName}`
     property string welcomeRequestPath: FileUtils.trimFileProtocol(`${Directories.state}/user/welcome_pending`)

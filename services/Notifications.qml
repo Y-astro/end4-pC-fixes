@@ -34,6 +34,7 @@ Singleton {
         property double time
         property string urgency: notification?.urgency.toString() ?? "normal"
         property Timer timer
+        property var internalActionPayload
 
         onNotificationChanged: {
             if (notification === null) {
@@ -151,6 +152,7 @@ Singleton {
     signal discard(id: int);
     signal discardAll();
     signal timeout(id: var);
+    signal internalActionInvoked(string identifier, int notificationId, var payload);
 
 	NotificationServer {
         id: notifServer
@@ -166,8 +168,10 @@ Singleton {
 
         onNotification: (notification) => {
             notification.tracked = true
+            root.idOffset++;
+            const id = root.idOffset;
             const newNotifObject = notifComponent.createObject(root, {
-                "notificationId": notification.id + root.idOffset,
+                "notificationId": id,
                 "notification": notification,
                 "time": Date.now(),
             });
@@ -197,14 +201,15 @@ Singleton {
     function discardNotification(id) {
         console.log("[Notifications] Discarding notification with ID: " + id);
         const index = root.list.findIndex((notif) => notif.notificationId === id);
-        const notifServerIndex = notifServer.trackedNotifications.values.findIndex((notif) => notif.id + root.idOffset === id);
         if (index !== -1) {
+            const notifObject = root.list[index];
+            const externalNotif = notifObject.notification;
             root.list.splice(index, 1);
             notifFileView.setText(stringifyList(root.list));
-            triggerListChange()
-        }
-        if (notifServerIndex !== -1) {
-            notifServer.trackedNotifications.values[notifServerIndex].dismiss()
+            triggerListChange();
+            if (externalNotif?.tracked) {
+                externalNotif.dismiss();
+            }
         }
         root.discard(id); // Emit signal
     }
@@ -243,20 +248,25 @@ Singleton {
 
     function attemptInvokeAction(id, notifIdentifier) {
         console.log("[Notifications] Attempting to invoke action with identifier: " + notifIdentifier + " for notification ID: " + id);
-        const notifServerIndex = notifServer.trackedNotifications.values.findIndex((notif) => notif.id + root.idOffset === id);
-        console.log("Notification server index: " + notifServerIndex);
-        if (notifServerIndex !== -1) {
-            const notifServerNotif = notifServer.trackedNotifications.values[notifServerIndex];
-            const action = notifServerNotif.actions.find((action) => action.identifier === notifIdentifier);
-            // console.log("Action found: " + JSON.stringify(action));
-            if (action) {
-                action.invoke();
+        const notifObject = root.list.find((notif) => notif.notificationId === id);
+        if (notifObject) {
+            if (notifObject.notification) {
+                const action = notifObject.notification.actions?.find((action) => action.identifier === notifIdentifier);
+                if (action) {
+                    action.invoke();
+                } else {
+                    console.warn("[Notifications] Action not found:", notifIdentifier);
+                }
             } else {
-                console.warn("[Notifications] Action not found:", notifIdentifier);
+                const action = notifObject.actions?.find((action) => action.identifier === notifIdentifier);
+                if (action) {
+                    root.internalActionInvoked(notifIdentifier, id, notifObject.internalActionPayload);
+                } else {
+                    console.warn("[Notifications] Action not found:", notifIdentifier);
+                }
             }
-        } 
-        else {
-            console.log("Notification not found in server: " + id)
+        } else {
+            console.warn("[Notifications] Notification not found: " + id);
         }
         root.discardNotification(id);
     }
@@ -279,6 +289,7 @@ Singleton {
             "image": params.image ?? "",
             "urgency": params.urgency ?? "normal",
             "actions": params.actions ?? [],
+            "internalActionPayload": params.actionPayload,
             "time": Date.now(),
         });
         root.list = [...root.list, newNotifObject];

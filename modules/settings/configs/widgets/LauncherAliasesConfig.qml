@@ -5,7 +5,6 @@ import Quickshell
 import Quickshell.Widgets
 import qs.modules.common
 import qs.modules.common.widgets
-import qs.modules.waffle.looks
 import qs.services
 
 Item {
@@ -14,6 +13,18 @@ Item {
 
     property bool showBackButton: false
     signal goBack()
+
+    component WAppIcon: IconImage {
+        property string iconName: ""
+        property real implicitSize: 24
+        property bool tryCustomIcon: false
+
+        implicitWidth: implicitSize
+        implicitHeight: implicitSize
+        width: implicitWidth
+        height: implicitHeight
+        source: iconName ? Quickshell.iconPath(iconName, true) : ""
+    }
 
     ContentPage {
         id: page

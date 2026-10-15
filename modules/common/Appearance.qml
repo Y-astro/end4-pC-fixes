@@ -315,6 +315,16 @@ Singleton {
                     "ROND": 100
                 })
             readonly property int steps: 3
+            function snap(t: real): real {
+                return Math.round(Math.max(0, Math.min(1, t)) * steps) / steps;
+            }
+            function blend(from: real, to: real, t: real): real {
+                return Math.round(from + (to - from) * snap(t));
+            }
+            function blendIn(from: real, to: real, t: real, n: int): real {
+                const count = Math.max(1, n);
+                return Math.round(from + (to - from) * Math.round(Math.max(0, Math.min(1, t)) * count) / count);
+            }
 
             property var main: ({
                 "wght": 450,

@@ -52,7 +52,7 @@ Singleton {
             "name": "Bar",
             "icon": "space_bar",
             "component": "modules/settings/configs/BarConfig.qml",
-            "subPages": ["widgets/BarAppearanceConfig.qml", "widgets/BarLayoutConfig.qml", "widgets/BarWidgetsWaffleConfig.qml", "widgets/ActiveWindowConfig.qml", "widgets/SearchBarWidgetConfig.qml", "widgets/DateBarWidgetConfig.qml", "widgets/ClockBarWidgetConfig.qml", "widgets/WeatherBarWidgetConfig.qml", "widgets/MediaPlayerConfig.qml", "widgets/UtilButtonsConfig.qml", "widgets/KeyboardLayoutConfig.qml", "widgets/SystemMonitorConfig.qml", "widgets/AiPlanUsageConfig.qml", "widgets/PortWatcherConfig.qml", "widgets/PrivacyPillConfig.qml", "widgets/IndicatorsConfig.qml", "widgets/RecordIndicatorConfig.qml", "widgets/SportsConfig.qml", "widgets/BluetoothConfig.qml", "widgets/SystemTrayConfig.qml", "widgets/BatteryConfig.qml", "widgets/DashboardButtonConfig.qml", "widgets/ClockDateWidgetConfig.qml", "widgets/WaffleTweaksConfig.qml", "widgets/DockToPanelConfig.qml", "widgets/BarScrollActionsConfig.qml", "widgets/BarTooltipsConfig.qml", "widgets/BarPopupsConfig.qml"],
+            "subPages": ["widgets/BarAppearanceConfig.qml", "widgets/BarLayoutConfig.qml", "widgets/BarWidgetsWaffleConfig.qml", "widgets/ActiveWindowConfig.qml", "widgets/SearchBarWidgetConfig.qml", "widgets/DateBarWidgetConfig.qml", "widgets/ClockBarWidgetConfig.qml", "widgets/WeatherBarWidgetConfig.qml", "widgets/MediaPlayerConfig.qml", "widgets/UtilButtonsConfig.qml", "widgets/KeyboardLayoutConfig.qml", "widgets/SystemMonitorConfig.qml", "widgets/AiPlanUsageConfig.qml", "widgets/PortWatcherConfig.qml", "widgets/PrivacyPillConfig.qml", "widgets/IndicatorsConfig.qml", "widgets/RecordIndicatorConfig.qml", "widgets/SportsConfig.qml", "widgets/BluetoothConfig.qml", "widgets/SystemTrayConfig.qml", "widgets/BatteryConfig.qml", "widgets/DashboardButtonConfig.qml", "widgets/ClockDateWidgetConfig.qml", "widgets/WaffleTweaksConfig.qml", "widgets/DockToPanelConfig.qml", "widgets/BarScrollActionsConfig.qml", "widgets/BarTooltipsConfig.qml", "widgets/BarPopupsConfig.qml", "widgets/NetworkSpeedConfig.qml"],
             "aliases": ["Bar & Status Bar", "Status Bar", "Shell mode", "Waffle", "Bar appearance", "Bar layout", "Bar style", "Brand icon", "Bar popups", "Floating popups", "Click bar to open sidebars"]
         },
         {
@@ -79,7 +79,6 @@ Singleton {
             "subPages": [
                 "presets/PublishSubPage.qml",
                 "presets/PresetDetailSubPage.qml",
-                "presets/PushUpdateSubPage.qml",
                 "presets/PresetScreenshotsSubPage.qml",
                 "presets/PresetDiffSubPage.qml"
             ],
@@ -393,6 +392,15 @@ Singleton {
             "aliases": ["Fingerprint", "Biometrics", "fprintd", "Fingerprint reader", "Lock blur", "Vignette", "Color wash", "Desaturate"]
         },
         {
+            "id": "contextMenu",
+            "families": ["ii"],
+            "name": "Context Menus",
+            "icon": "touch_app",
+            "component": "modules/settings/configs/ContextMenuConfig.qml",
+            "subPages": [],
+            "aliases": ["Context Menu", "Right click", "Desktop menu"]
+        },
+        {
             "id": "profile",
             "name": "User Profile",
             "icon": "account_circle",
@@ -443,7 +451,7 @@ Singleton {
         {
             "id": "desktopWindows",
             "name": "Desktop & Windows",
-            "pageIds": ["wallpaper", "workspaces", "overview", "windows", "tiling", "lockScreen", "widgets"]
+            "pageIds": ["wallpaper", "workspaces", "overview", "windows", "tiling", "lockScreen", "widgets", "contextMenu"]
         },
         {
             "id": "tools",

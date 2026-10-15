@@ -26,7 +26,7 @@ ContentPage {
     readonly property string selectedMonitorName: selectedMonitor && selectedMonitor.name ? selectedMonitor.name : ""
     readonly property var selectedCalibration: DisplayCalibration.monitorForName(selectedMonitorName)
     readonly property var selectedGpuCalibration: DisplayColorFilter.profileForMonitor(selectedMonitorName)
-    readonly property int activeMonitorCount: monitorConfig.activeMonitorCount
+    readonly property int activeMonitorCount: (monitorConfig.monitors ?? []).filter(monitor => !monitor.disabled).length
 
     component MonitorRect: Rectangle {
         id: rectRoot

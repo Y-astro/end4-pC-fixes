@@ -10,6 +10,6 @@ import ".."
  */
 ModeCondition {
     id: root
-    satisfied: Notifications.focusedWindowFullscreen
+    satisfied: (ToplevelManager.activeToplevel?.wayland?.fullscreen) ?? false
     reason: root.satisfied ? (ToplevelManager.activeToplevel?.appId ?? "fullscreen") : ""
 }

@@ -3,10 +3,23 @@ pragma Singleton
 import qs.modules.common
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 
 Singleton {
     id: root
+    property int iconThemeRevision: 0
+    property bool iconPackApplying: false
+    FileView {
+        path: Quickshell.env("HOME") + "/.local/share/icons/DynamicTheme.colhash"
+        watchChanges: true
+        onFileChanged: if (!root.iconPackApplying) iconRedrawTimer.restart()
+    }
+    Timer {
+        id: iconRedrawTimer
+        interval: 250
+        onTriggered: root.iconThemeRevision = 1 - root.iconThemeRevision
+    }
 
     function isPinned(appId) {
         return Config.options.dock.pinnedApps.indexOf(appId) !== -1;

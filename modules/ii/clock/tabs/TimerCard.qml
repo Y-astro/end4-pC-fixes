@@ -39,7 +39,7 @@ Rectangle {
     readonly property bool running: !root.paused && !root.finished
     readonly property int secondsLeft: {
         TimerService.countdownTick;
-        return TimerService.countdownSecondsLeft(root.countdown);
+        return TimerService.countdownRemainingSeconds(root.countdown);
     }
     readonly property real progress: {
         TimerService.countdownTick;
@@ -282,7 +282,7 @@ Rectangle {
                         if (root.finished)
                             TimerService.restartCountdown(root.countdownId);
                         else
-                            TimerService.toggleCountdown(root.countdownId);
+                            TimerService.toggleNamedCountdown(root.countdownId);
                     }
                 }
 

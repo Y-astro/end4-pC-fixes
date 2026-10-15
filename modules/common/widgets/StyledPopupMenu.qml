@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
+import qs.modules.common
+import qs.services
 import qs.modules.common.widgets // Para las sombras y estilos
 
 Item {
@@ -26,15 +28,19 @@ Item {
             WlrLayershell.namespace: "quickshell:popup"
             
             color: "transparent"
-            mask: true
+            mask: Region { item: container }
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
             
             // Dimensiones basadas en el contenido
             implicitWidth: container.implicitWidth + 40
             implicitHeight: container.implicitHeight + 40
 
             // Si el usuario hace clic fuera o la ventana pierde foco, cerramos
-            onActiveFocusChanged: {
-                if (!activeFocus) root.visible = false
+            Component.onCompleted: GlobalFocusGrab.addDismissable(popupWindow)
+            Component.onDestruction: GlobalFocusGrab.removeDismissable(popupWindow)
+            Connections {
+                target: GlobalFocusGrab
+                function onDismissed() { root.visible = false; }
             }
 
             // Sombras usando tus widgets existentes

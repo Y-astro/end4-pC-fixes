@@ -116,7 +116,7 @@ Item {
             readonly property bool depsReady: buildStatus !== null && missingDeps.length === 0
             readonly property bool pluginBuilt: (buildStatus?.installedDir ?? "") !== ""
             // Importable in this shell: the probe below loads only then.
-            readonly property bool pluginLoaded: mpvPluginProbe.status === Loader.Ready
+            readonly property bool pluginLoaded: mpvPluginProbe.status === Component.Ready
             // The running shell's environment, which the plugin dir has to be in.
             readonly property bool importPathReady: (Quickshell.env("QML_IMPORT_PATH") ?? "").split(":").includes(buildStatus?.userQmlDir ?? "")
 
@@ -207,12 +207,9 @@ Item {
                 Quickshell.execDetached(cmd);
             }
 
-            // Importable only when the MpvWallpaper plugin is installed.
-            Loader {
-                id: mpvPluginProbe
-                visible: false
-                source: Qt.resolvedUrl("../../ii/background/wallpaper/MpvWallpaperProbe.qml")
-            }
+            // Test the optional plugin's import without creating a loader/window.
+            // Component.Error is the expected unavailable state shown by this page.
+            readonly property var mpvPluginProbe: Qt.createComponent(Qt.resolvedUrl("../../ii/background/wallpaper/MpvWallpaperProbe.qml"))
 
             ContentSubsection {
                 title: Translation.tr("Video player")

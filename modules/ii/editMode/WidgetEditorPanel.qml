@@ -51,8 +51,9 @@ Rectangle {
     }
     function duplicate() {
         if (!root.instance) return;
-        const copy = Object.assign({}, root.instance, { id: root.instance.widgetId + "-" + Date.now().toString(36), x: root.instance.x + 24, y: root.instance.y + 24 });
-        Config.options.background.activeWidgets = Config.options.background.activeWidgets.concat([copy]);
+        const id = root.instance.widgetId + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6);
+        const copy = Object.assign({}, root.instance, { id: id, x: root.instance.x + 24, y: root.instance.y + 24 });
+        Config.options.background.activeWidgets = (Config.options.background.activeWidgets ?? []).concat([copy]);
         GlobalStates.selectEditWidget(copy.id, copy.id, GlobalStates.editWidgetConfigName);
     }
     Connections {
@@ -143,6 +144,13 @@ Rectangle {
                 currentValue: (root.instance && root.instance.lockBehavior) ? root.instance.lockBehavior : "keep"
                 model: [{ value: "keep", displayName: qsTr("Show") }, { value: "hide", displayName: qsTr("Hide") }, { value: "lockOnly", displayName: qsTr("Only when locked") }]
                 onSelected: value => root.setPosition("lockBehavior", value)
+            }
+            ConfigSwitch {
+                Layout.fillWidth: true
+                visible: !!root.instance
+                text: qsTr("Pinned")
+                checked: !!(root.instance && root.instance.pinned)
+                onCheckedChanged: if (root.instance && checked !== root.instance.pinned) root.setPosition("pinned", checked)
             }
             RippleButton {
                 Layout.fillWidth: true; implicitHeight: 36

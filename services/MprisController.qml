@@ -24,6 +24,7 @@ Singleton {
 	property bool __reverse: false;
 
 	property var activeTrack;
+	readonly property string artUrl: activePlayer?.trackArtUrl ?? "";
 
 	readonly property bool hasActivePlasmaIntegration: Mpris.players.values.some(
 		p => p.dbusName?.startsWith('org.mpris.MediaPlayer2.plasma-browser-integration')

@@ -16,7 +16,7 @@ Item {
 
     readonly property int gridColumns: 2
     readonly property real timerCardHeight: Appearance.sizes.elevationMargin * 9
-    readonly property var countdowns: TimerService.countdownDuration > 0 ? [{ id: "countdown", paused: !TimerService.countdownRunning, label: Translation.tr("Countdown") }] : []
+    readonly property var countdowns: (TimerService.countdownDuration > 0 ? [{ id: "countdown", paused: !TimerService.countdownRunning, label: Translation.tr("Countdown") }] : []).concat(Array.from(TimerService.countdowns ?? []))
     readonly property real typedMinutes: root.minutesFromQuery(root.searchQuery)
     readonly property var rows: root.filteredRows()
     readonly property var selectedRow: root.selectedIndex >= 0 && root.selectedIndex < root.rows.length
@@ -119,7 +119,7 @@ Item {
                 ? TimerService.getCurrentTimeIn10ms() - TimerService.stopwatchStart
                 : TimerService.stopwatchTime) / 100));
         if (row.kind === "countdown")
-            return root.formatSeconds(TimerService.countdownSecondsLeft);
+            return root.formatSeconds(row.id === "countdown" ? TimerService.countdownSecondsLeft : TimerService.countdownRemainingSeconds(row.countdown));
         return String(row.value ?? "");
     }
 
@@ -199,7 +199,8 @@ Item {
             TimerService.toggleStopwatch();
             root.showNotice(TimerService.stopwatchRunning ? Translation.tr("Stopwatch started") : Translation.tr("Stopwatch paused"));
         } else if (row.kind === "countdown") {
-            TimerService.resetCountdown();
+            if (row.id === "countdown") TimerService.resetCountdown();
+            else TimerService.removeCountdown(row.id);
             root.showNotice(Translation.tr("Timer removed"));
         } else if (row.kind === "alarm") {
             AlarmService.toggleAlarm(row.alarmIndex);

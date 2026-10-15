@@ -231,7 +231,7 @@ ColumnLayout {
         }
 
         Rectangle {
-            visible: Battery.chargeLimitActive
+            visible: Battery.chargeLimitActive ?? false
             Layout.fillWidth: true
             implicitHeight: 72
             radius: Appearance.rounding.normal

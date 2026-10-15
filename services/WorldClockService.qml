@@ -39,7 +39,7 @@ Singleton {
 
     Connections {
         target: DateTime
-        function onHoursChanged() {
+        function onHour24Changed() {
             if (root.holders > 0)
                 root.refresh();
         }

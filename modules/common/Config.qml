@@ -321,6 +321,10 @@ Singleton {
         return entries;
     }
 
+    function isWidgetActive(widgetId) {
+        return root.countWidgetInstances(widgetId) > 0;
+    }
+
     function countWidgetInstances(widgetId) {
         return (root.options?.background?.activeWidgets ?? []).filter(w => w.widgetId === widgetId).length;
     }

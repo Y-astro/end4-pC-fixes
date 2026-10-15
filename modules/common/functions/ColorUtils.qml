@@ -3,6 +3,15 @@ import Quickshell
 
 Singleton {
     id: root
+    function categoryContainer(hueDegrees, themeColor, saturation) {
+        const color = Qt.color(themeColor);
+        return Qt.hsla(((hueDegrees % 360) + 360) % 360 / 360, Math.min(1, Math.max(0, saturation)), color.hslLightness, 1);
+    }
+    function categoryOnColor(containerColor, hueDegrees = -1) {
+        const color = Qt.color(containerColor);
+        const hue = hueDegrees < 0 ? color.hslHue : ((hueDegrees % 360) + 360) % 360 / 360;
+        return Qt.hsla(hue, 0.35, color.hslLightness < 0.5 ? 0.92 : 0.14, 1);
+    }
 
     /**
      * Returns a color with the hue of color2 and the saturation, value, and alpha of color1.

@@ -166,7 +166,7 @@ Singleton {
     Process {
         id: khalCheckProcess
 
-        command: ["khal", "list", "today"]
+        command: ["sh", "-c", "command -v khal >/dev/null 2>&1 && exec khal list today"]
         running: true
         onExited: exitCode => {
             root.khalAvailable = (exitCode === 0);

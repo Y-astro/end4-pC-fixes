@@ -102,7 +102,7 @@ AndroidQuickToggleButton {
             TimerService.toggleStopwatch();
         } else if (root.isCountdown) {
             if (root.currentCountdown)
-                TimerService.toggleCountdown(root.currentCountdown.id);
+                TimerService.toggleNamedCountdown(root.currentCountdown.id);
             else if (TimerService.draftCountdownSeconds() > 0)
                 TimerService.startDraftCountdown();
         } else {

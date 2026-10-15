@@ -42,7 +42,7 @@ ContentPage {
      * or the animation settings while that is on, so they are locked rather than left
      * looking as though they still do something.
      */
-    readonly property bool islandOwnsLayout: GlobalStates.islandOwnsOverview
+    readonly property bool islandOwnsLayout: (GlobalStates.islandOwnsOverview ?? false)
 
     KeyboardShortcutBox {
         Layout.fillWidth: true

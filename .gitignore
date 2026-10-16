@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+scripts/tray/sni_watcher
+scripts/tray/.sni_watcher.stamp
+scripts/tray/sni_watcher_src/target/
+*.log

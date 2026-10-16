@@ -18,6 +18,7 @@ Scope {
     readonly property var selectedEntry: GlobalStates.editWidgetInstanceId ? root.instance : Config.options.background.widgets[GlobalStates.editWidgetKey]
     readonly property var liveEntries: (ContextMenus.definition(root.menuId)?.entries ?? []).filter(entry => {
         if (entry.header) return false;
+        if (root.menuId === "desktop" && (entry.id === "widgets" || entry.id === "bar")) return false;
         if (root.menuId === "editWidget" && entry.id === "duplicate") return !!root.instance;
         return true;
     }).map(entry => Object.assign({}, entry, { checked: entry.id === "pin" && (root.instance ? !!root.instance.pinned : Config.options.background.pinnedWidgets.includes(GlobalStates.editWidgetKey)) }));
@@ -56,8 +57,7 @@ Scope {
             return;
         }
         switch (entry.id) {
-        case "widgets": case "edit": GlobalStates.openEditMode(root.menuId === "bar" ? "bar" : "widgets", GlobalStates.desktopMenuScreen?.name); break;
-        case "bar": GlobalStates.openEditMode("bar", GlobalStates.desktopMenuScreen?.name); break;
+        case "edit": GlobalStates.openEditMode(root.menuId === "bar" ? "bar" : "widgets", GlobalStates.desktopMenuScreen?.name); break;
         case "dropShelf": GlobalStates.dropShelfX = GlobalStates.desktopMenuX; GlobalStates.dropShelfY = GlobalStates.desktopMenuY; GlobalStates.dropShelfOpen = true; break;
         case "liveWallpaper": Wallpapers.openFallbackPicker(Appearance.m3colors.darkmode, Config.options.wallpaperSelector.liveWallpapersPath ?? ""); break;
         case "settings": GlobalStates.closeEditMode(); if (root.menuId === "bar") GlobalStates.openSettingsPage("bar"); else GlobalStates.settingsOpen = true; break;

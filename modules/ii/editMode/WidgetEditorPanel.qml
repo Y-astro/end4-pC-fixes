@@ -9,16 +9,74 @@ import "."
 Rectangle {
     id: root
     required property var screen
+    signal dragBy(real dx, real dy)
     property string query: ""
     property bool showingOptions: false
+    property var collapsedCategories: ({})
     readonly property var instance: (Config.options.background.activeWidgets ?? []).find(entry => entry.id === GlobalStates.editWidgetInstanceId)
     readonly property var entry: GlobalStates.editWidgetInstanceId ? root.instance : Config.options.background.widgets[GlobalStates.editWidgetKey]
     readonly property var metadata: root.instance ? WidgetsRegistry.getWidgetMetadata(root.instance.widgetId) : null
     readonly property var legacy: LegacyWidgetCatalog.widgets.find(entry => entry.id === GlobalStates.editWidgetKey)
     readonly property string selectionName: (root.metadata ? root.metadata.name : "") || (root.legacy ? root.legacy.name : "") || ""
-    readonly property var catalog: LegacyWidgetCatalog.widgets.map(widget => Object.assign({}, widget, { legacy: true }))
-        .concat(WidgetsRegistry.allWidgets.map(widget => Object.assign({}, widget, { id: widget.widgetId, legacy: false })))
-        .filter(widget => !root.query || (widget.name + " " + widget.category).toLowerCase().includes(root.query.toLowerCase()))
+
+    function normalizeCategory(cat) {
+        if (!cat) return "Other";
+        const c = String(cat).trim();
+        const lower = c.toLowerCase();
+        if (lower === "clock" || lower === "date") return "Clock";
+        if (lower === "weather") return "Weather";
+        if (lower === "productivity" || lower === "utility") return "Productivity";
+        if (lower === "media") return "Media";
+        if (lower === "system" || lower === "resources" || lower === "devices") return "System";
+        if (lower === "images" || lower === "photo" || lower === "photos" || lower === "image") return "Images";
+        return c;
+    }
+
+    function displayCategory(normCat) {
+        if (normCat === "Clock") return "Clocks";
+        return normCat;
+    }
+
+    function toggleCategory(cat) {
+        const copy = Object.assign({}, root.collapsedCategories);
+        if (copy[cat]) delete copy[cat];
+        else copy[cat] = true;
+        root.collapsedCategories = copy;
+    }
+
+    readonly property var catalog: {
+        const q = (root.query || "").trim().toLowerCase();
+        const legacyItems = LegacyWidgetCatalog.widgets.map(w => {
+            const norm = root.normalizeCategory(w.category);
+            return Object.assign({}, w, {
+                legacy: true,
+                normalizedCategory: norm,
+                displayCategory: root.displayCategory(norm)
+            });
+        });
+        const registryItems = WidgetsRegistry.allWidgets.map(w => {
+            const norm = root.normalizeCategory(w.category);
+            return Object.assign({}, w, {
+                id: w.widgetId,
+                legacy: false,
+                normalizedCategory: norm,
+                displayCategory: root.displayCategory(norm)
+            });
+        });
+        return legacyItems.concat(registryItems)
+            .filter(widget => {
+                if (!q) return true;
+                const searchString = (widget.name + " " + (widget.category || "") + " " + widget.normalizedCategory + " " + widget.displayCategory).toLowerCase();
+                return searchString.includes(q);
+            })
+            .sort((a, b) => {
+                if (a.displayCategory !== b.displayCategory) {
+                    return a.displayCategory.localeCompare(b.displayCategory);
+                }
+                return a.name.localeCompare(b.name);
+            });
+    }
+
     color: Appearance.colors.colLayer0
     radius: Appearance.rounding.large
     clip: true
@@ -68,7 +126,75 @@ Rectangle {
         spacing: 10
         RowLayout {
             Layout.fillWidth: true
-            StyledText { Layout.fillWidth: true; text: qsTr("Edit desktop"); font.pixelSize: 22 }
+            spacing: 8
+
+            Item {
+                id: headerDragArea
+                Layout.fillWidth: true
+                implicitHeight: 40
+                readonly property bool hovered: headerHover.hovered && !headerDrag.active
+
+                HoverHandler {
+                    id: headerHover
+                    cursorShape: Qt.OpenHandCursor
+                }
+
+                DragHandler {
+                    id: headerDrag
+                    target: null
+                    grabPermissions: PointerHandler.CanTakeOverFromAnything
+                    cursorShape: Qt.ClosedHandCursor
+
+                    property real lastSceneX: 0
+                    property real lastSceneY: 0
+
+                    onActiveChanged: {
+                        if (active) {
+                            lastSceneX = centroid.scenePosition.x;
+                            lastSceneY = centroid.scenePosition.y;
+                        }
+                    }
+
+                    onCentroidChanged: {
+                        if (!active) return;
+                        var cx = centroid.scenePosition.x;
+                        var cy = centroid.scenePosition.y;
+                        var dx = cx - lastSceneX;
+                        var dy = cy - lastSceneY;
+                        lastSceneX = cx;
+                        lastSceneY = cy;
+                        if (dx !== 0 || dy !== 0) {
+                            root.dragBy(dx, dy);
+                        }
+                    }
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: 6
+
+                    MaterialSymbol {
+                        text: "drag_indicator"
+                        iconSize: 20
+                        color: Appearance.colors.colSubtext
+                        opacity: headerDrag.active ? 1.0 : (headerHover.hovered ? 0.8 : 0.4)
+                        Behavior on opacity { NumberAnimation { duration: 120 } }
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: qsTr("Edit desktop")
+                        font.pixelSize: 22
+                        elide: Text.ElideRight
+                    }
+                }
+
+                StyledToolTip {
+                    extraVisibleCondition: headerDragArea.hovered
+                    text: qsTr("Drag to move")
+                }
+            }
+
             RippleButton {
                 implicitWidth: 70; implicitHeight: 40
                 onClicked: GlobalStates.closeEditMode()
@@ -176,23 +302,75 @@ Rectangle {
                 }
                 ListView {
                     Layout.fillWidth: true; Layout.fillHeight: true
-                    clip: true; spacing: 4
+                    clip: true; spacing: 0
                     model: root.catalog
-                    delegate: RippleButton {
-                        id: catalogRow
+
+                    section.property: "displayCategory"
+                    section.criteria: ViewSection.FullString
+                    section.delegate: Component {
+                        Rectangle {
+                            id: sectionHeader
+                            required property string section
+                            width: ListView.view.width
+                            implicitHeight: 34
+                            color: "transparent"
+
+                            property bool isCollapsed: !root.query && !!root.collapsedCategories[section]
+
+                            RippleButton {
+                                anchors.fill: parent
+                                anchors.topMargin: 4
+                                anchors.bottomMargin: 2
+                                onClicked: root.toggleCategory(sectionHeader.section)
+                                contentItem: RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 6
+                                    anchors.rightMargin: 8
+                                    MaterialSymbol {
+                                        text: sectionHeader.isCollapsed ? "chevron_right" : "expand_more"
+                                        iconSize: 18
+                                    }
+                                    StyledText {
+                                        Layout.fillWidth: true
+                                        text: sectionHeader.section
+                                        font.bold: true
+                                        font.pixelSize: 13
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    delegate: Item {
+                        id: catalogItemWrapper
                         required property var modelData
                         width: ListView.view.width
-                        implicitHeight: 56
-                        onClicked: root.add(modelData)
-                        contentItem: RowLayout {
-                            anchors.fill: parent; anchors.margins: 8
-                            MaterialSymbol { text: catalogRow.modelData.icon || "widgets"; iconSize: 24 }
-                            ColumnLayout {
-                                Layout.fillWidth: true; spacing: 0
-                                StyledText { Layout.fillWidth: true; text: catalogRow.modelData.name; elide: Text.ElideRight }
-                                StyledText { text: catalogRow.modelData.category || ""; font.pixelSize: 11 }
+                        property bool isCollapsed: !root.query && !!root.collapsedCategories[modelData.displayCategory]
+                        implicitHeight: isCollapsed ? 0 : 60
+                        height: implicitHeight
+                        visible: !isCollapsed
+                        clip: true
+
+                        RippleButton {
+                            id: catalogRow
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: 56
+                            onClicked: root.add(catalogItemWrapper.modelData)
+                            contentItem: RowLayout {
+                                anchors.fill: parent; anchors.margins: 8
+                                MaterialSymbol { text: catalogItemWrapper.modelData.icon || "widgets"; iconSize: 24 }
+                                ColumnLayout {
+                                    Layout.fillWidth: true; spacing: 0
+                                    StyledText { Layout.fillWidth: true; text: catalogItemWrapper.modelData.name; elide: Text.ElideRight }
+                                    StyledText { text: catalogItemWrapper.modelData.category || ""; font.pixelSize: 11 }
+                                }
+                                MaterialSymbol {
+                                    text: catalogItemWrapper.modelData.legacy && (Config.options.background.widgets[catalogItemWrapper.modelData.id] && Config.options.background.widgets[catalogItemWrapper.modelData.id].enable) ? "check" : "add"
+                                    iconSize: 20
+                                }
                             }
-                            MaterialSymbol { text: catalogRow.modelData.legacy && (Config.options.background.widgets[catalogRow.modelData.id] && Config.options.background.widgets[catalogRow.modelData.id].enable) ? "check" : "add"; iconSize: 20 }
                         }
                     }
                 }

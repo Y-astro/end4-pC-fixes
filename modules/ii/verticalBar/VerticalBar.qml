@@ -25,11 +25,13 @@ Scope {
         }
         LazyLoader {
             id: barLoader
-            active: GlobalStates.barOpen && !GlobalStates.screenLocked
+            property bool editingThisScreen: GlobalStates.editMode && GlobalStates.editModeMonitorName === modelData?.name
+            active: (GlobalStates.barOpen || editingThisScreen) && !GlobalStates.screenLocked
             required property ShellScreen modelData
             component: PanelWindow {
                 id: barRoot
                 screen: barLoader.modelData
+                property bool editingThisScreen: barLoader.editingThisScreen
 
                 property var brightnessMonitor: Brightness.getMonitorForScreen(barLoader.modelData)
                 
@@ -48,7 +50,7 @@ Scope {
                     }
                 }
                 property bool superShow: false
-                property bool mustShow: hoverRegion.containsMouse || superShow
+                property bool mustShow: hoverRegion.containsMouse || superShow || editingThisScreen
                 exclusionMode: ExclusionMode.Ignore
                 property int normalExclusiveZone: (Config?.options.bar.autoHide.enable && (!mustShow || !Config?.options.bar.autoHide.pushWindows))
                     ? 0
@@ -60,6 +62,7 @@ Scope {
                     ? Config.options.bar.frameThickness
                     : normalExclusiveZone
                 WlrLayershell.namespace: "quickshell:verticalBar"
+                WlrLayershell.layer: editingThisScreen ? WlrLayer.Overlay : WlrLayer.Top
                 implicitWidth: Appearance.sizes.verticalBarWidth + Appearance.rounding.screenRounding
                 mask: Region { item: hoverMaskRegion }
                 color: "transparent"

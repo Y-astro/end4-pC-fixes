@@ -119,9 +119,7 @@ Singleton {
         { id: "desktop", name: "Desktop", icon: "desktop_windows", entries: [
             { id: "recents", symbol: "photo_library", title: "Recent wallpapers", header: true },
             { id: "style", symbol: "wallpaper", title: "Wallpaper & style", submenu: true },
-            { id: "widgets", symbol: "widgets", title: "Desktop widgets", bar: true },
-            { id: "edit", symbol: "edit", title: "Edit layout", bar: true },
-            { id: "bar", symbol: "view_stream", title: "Arrange bar" },
+            { id: "edit", symbol: "edit", title: "Edit interface", bar: true },
             { id: "dropShelf", symbol: "stacks", title: "DropShelf" },
             { id: "liveWallpaper", symbol: "video_template", title: "Live wallpaper" },
             { id: "separator", separator: true },

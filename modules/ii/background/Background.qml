@@ -87,8 +87,9 @@ Variants {
         screen: modelData
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.layer: (GlobalStates.screenLocked && !scaleAnim.running)
-            || (GlobalStates.editMode && GlobalStates.editModeMonitorName === bgRoot.screen.name)
-            ? WlrLayer.Overlay : WlrLayer.Bottom
+            ? WlrLayer.Overlay
+            : ((GlobalStates.editMode && GlobalStates.editModeMonitorName === bgRoot.screen.name) || editorLoader.opacity > 0)
+                ? WlrLayer.Top : WlrLayer.Bottom
         WlrLayershell.namespace: "quickshell:background"
         WlrLayershell.keyboardFocus: GlobalStates.desktopWidgetKeyboardFocus
             || (GlobalStates.editMode && GlobalStates.editModeMonitorName === bgRoot.screen.name)
@@ -472,17 +473,86 @@ Variants {
                 }
             }
 
+            Connections {
+                target: widgetCanvas
+                function onClicked(mouse) {
+                    if (mouse.button === Qt.LeftButton
+                        && GlobalStates.editMode
+                        && !GlobalStates.screenLocked
+                        && GlobalStates.editModeMonitorName === bgRoot.screen.name
+                        && widgetCanvas.selectionRect.width <= 3
+                        && widgetCanvas.selectionRect.height <= 3) {
+                        GlobalStates.closeEditMode();
+                    }
+                }
+            }
+
             Loader {
-                anchors.top: parent.top
-                anchors.right: parent.right
-                anchors.margins: 24
-                anchors.topMargin: 72
+                id: editorLoader
+                z: 1000000
+
+                readonly property bool shown: GlobalStates.editMode && !GlobalStates.screenLocked
+                    && GlobalStates.editModeMonitorName === bgRoot.screen.name
+
+                property real margin: 24
+                property real topMargin: 72
+                property real minX: margin
+                property real maxX: Math.max(minX, parent.width - width - margin)
+                property real minY: margin
+                property real maxY: Math.max(minY, parent.height - height - margin)
+
+                property real defaultX: Math.max(minX, parent.width - width - margin)
+                property real defaultY: Math.max(minY, Math.min(maxY, topMargin))
+
+                x: defaultX
+                y: defaultY
                 width: Math.min(440, parent.width - 48)
                 height: Math.max(180, parent.height - 110)
-                z: 1000000
-                active: GlobalStates.editMode && !GlobalStates.screenLocked
-                    && GlobalStates.editModeMonitorName === bgRoot.screen.name
-                sourceComponent: WidgetEditorPanel { screen: bgRoot.screen }
+
+                property bool ready: false
+                Component.onCompleted: ready = true
+
+                function clampToBounds() {
+                    x = Math.max(minX, Math.min(maxX, x));
+                    y = Math.max(minY, Math.min(maxY, y));
+                }
+
+                onMinXChanged: if (ready) clampToBounds()
+                onMaxXChanged: if (ready) clampToBounds()
+                onMinYChanged: if (ready) clampToBounds()
+                onMaxYChanged: if (ready) clampToBounds()
+
+                function moveEditor(dx, dy) {
+                    x = Math.max(minX, Math.min(maxX, x + dx));
+                    y = Math.max(minY, Math.min(maxY, y + dy));
+                }
+
+                opacity: shown ? 1 : 0
+                scale: shown ? 1.0 : 0.96
+                transform: Translate {
+                    y: editorLoader.shown ? 0 : -8
+                    Behavior on y {
+                        enabled: true
+                        NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+                    }
+                }
+
+                Behavior on opacity {
+                    enabled: true
+                    NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+                }
+                Behavior on scale {
+                    enabled: true
+                    NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+                }
+
+                enabled: shown
+                visible: opacity > 0
+                active: shown || opacity > 0
+                sourceComponent: WidgetEditorPanel {
+                    screen: bgRoot.screen
+                    onDragBy: (dx, dy) => editorLoader.moveEditor(dx, dy)
+                }
             }
             EditAlignBar {
                 z: 1000001

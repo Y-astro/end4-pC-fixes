@@ -498,7 +498,9 @@ Variants {
                 property real topMargin: 72
                 property real minX: margin
                 property real maxX: Math.max(minX, parent.width - width - margin)
-                property real minY: margin
+                property real minY: (Config.options.bar.vertical || Config.options.bar.bottom)
+                    ? margin
+                    : Math.max(margin, 72, Appearance.sizes.barHeight + 8)
                 property real maxY: Math.max(minY, parent.height - height - margin)
 
                 property real defaultX: Math.max(minX, parent.width - width - margin)
@@ -510,11 +512,18 @@ Variants {
                 height: Math.max(180, parent.height - 110)
 
                 property bool ready: false
-                Component.onCompleted: ready = true
+                Component.onCompleted: Qt.callLater(() => {
+                    ready = true;
+                    clampToBounds();
+                })
 
                 function clampToBounds() {
-                    x = Math.max(minX, Math.min(maxX, x));
-                    y = Math.max(minY, Math.min(maxY, y));
+                    const clampedX = Math.max(minX, Math.min(maxX, x));
+                    const clampedY = Math.max(minY, Math.min(maxY, y));
+                    if (x !== clampedX)
+                        x = clampedX;
+                    if (y !== clampedY)
+                        y = clampedY;
                 }
 
                 onMinXChanged: if (ready) clampToBounds()

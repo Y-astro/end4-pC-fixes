@@ -9,8 +9,12 @@ Item {
     id: root
 
     property int minute: DateTime.clock.minutes
+    property int second: DateTime.clock.seconds
+    property bool showSeconds: false
+    property real secondsCenterX: 0.0
     property string minuteStyle: "pill_horizontal" // "pill_horizontal" | "pill_round" | "text_only" | "capsule_extended" | "hide"
     property bool boldFont: false
+    property bool filled: false
 
     property color textColor: WidgetColorScheme.textColorOnBg
     property color outlineColor: WidgetColorScheme.subtextColorOnBg
@@ -19,6 +23,7 @@ Item {
     property real baseWidth: 240
 
     readonly property string minuteString: minute < 10 ? "0" + minute : "" + minute
+    readonly property string secondString: second < 10 ? "0" + second : "" + second
 
     implicitWidth: mainShape.implicitWidth
     implicitHeight: mainShape.implicitHeight
@@ -41,7 +46,7 @@ Item {
         }
 
         radius: height / 2
-        color: root.minuteStyle === "pill_round" ? root.pillBg : "transparent"
+        color: root.minuteStyle === "pill_round" || (root.filled && root.minuteStyle === "pill_horizontal") ? root.pillBg : "transparent"
         border.color: root.minuteStyle === "pill_horizontal" ? root.outlineColor : "transparent"
         border.width: root.minuteStyle === "pill_horizontal" ? 1.5 : 0
 
@@ -56,6 +61,21 @@ Item {
             font {
                 family: root.boldFont ? Appearance.font.family.display : Appearance.font.family.title
                 pixelSize: mainShape.height * 0.55
+                weight: root.boldFont ? Font.Bold : Font.Normal
+            }
+        }
+
+        StyledText {
+            id: secondText
+            visible: root.showSeconds && root.minuteStyle === "pill_horizontal"
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.horizontalCenter: parent.left
+            anchors.horizontalCenterOffset: root.secondsCenterX
+            text: root.secondString
+            color: root.textColor
+            font {
+                family: root.boldFont ? Appearance.font.family.display : Appearance.font.family.title
+                pixelSize: root.baseWidth * 0.055
                 weight: root.boldFont ? Font.Bold : Font.Normal
             }
         }

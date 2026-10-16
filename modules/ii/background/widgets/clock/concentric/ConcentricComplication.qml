@@ -38,7 +38,7 @@ Item {
             StyledText {
                 visible: root.type === "battery"
                 text: Math.round(Battery.percentage * 100) + "%"
-                color: WidgetColorScheme.textColorOnPillTrack
+                color: root.textColor
                 font.pixelSize: parent.parent.height * 0.50
                 font.weight: Font.Bold
                 anchors.verticalCenter: parent.verticalCenter
@@ -55,7 +55,7 @@ Item {
             StyledText {
                 visible: root.type === "weather_temp"
                 text: (Weather.data.temp || "--") + "°"
-                color: WidgetColorScheme.textColorOnPillTrack
+                color: root.textColor
                 font.pixelSize: parent.parent.height * 0.50
                 font.weight: Font.Bold
                 anchors.verticalCenter: parent.verticalCenter

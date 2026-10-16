@@ -13,6 +13,8 @@ Canvas {
     property bool showMinuteDot: true
     property bool boldFont: false
     property real dialMarginOffset: 0.0
+    property bool rotateSeconds: false
+    property bool animationActive: true
 
     property color textColor: WidgetColorScheme.textColorOnBg
     property color subtextColor: WidgetColorScheme.subtextColorOnBg
@@ -23,6 +25,54 @@ Canvas {
 
     anchors.fill: parent
     contextType: "2d"
+    transformOrigin: Item.Center
+
+    function resync() {
+        if (!rotateSeconds) {
+            root.rotation = 0;
+            return;
+        }
+        if (!animationActive || !visible) {
+            return;
+        }
+        root.rotation = 90.0 - (Date.now() % 60000) * 0.006;
+    }
+
+    onRotateSecondsChanged: {
+        if (!rotateSeconds) {
+            root.rotation = 0;
+        } else {
+            resync();
+        }
+    }
+
+    onAnimationActiveChanged: {
+        if (animationActive) {
+            resync();
+        }
+    }
+
+    onVisibleChanged: {
+        if (visible) {
+            resync();
+        }
+    }
+
+    Component.onCompleted: {
+        if (rotateSeconds && animationActive && visible) {
+            resync();
+        } else if (!rotateSeconds) {
+            root.rotation = 0;
+        }
+    }
+
+    FrameAnimation {
+        id: frameAnim
+        running: root.rotateSeconds && root.animationActive && root.visible
+        onTriggered: {
+            root.rotation = 90.0 - (Date.now() % 60000) * 0.006;
+        }
+    }
 
     Connections {
         target: DateTime.clock

@@ -9,6 +9,7 @@ import qs.modules.common.widgets
 
 Item {
     id: root
+    objectName: "sysTrayModule"
     property bool vertical: false
     property bool invertSide: false
     property bool trayOverflowOpen: false

@@ -3,6 +3,7 @@ import QtQuick.Effects
 import Qt5Compat.GraphicalEffects
 import QtQuick.Shapes as Shapes
 import QtQuick.Layouts
+import Quickshell
 import qs
 import qs.services
 import qs.modules.common
@@ -62,18 +63,23 @@ AbstractBackgroundWidget {
     readonly property int cfgHourFontWidth: Config.ready ? (Config.options.background.widgets.concentric_clock.hourFontWidth ?? 85) : 85
     readonly property int cfgHourFontRound: Config.ready ? (Config.options.background.widgets.concentric_clock.hourFontRound ?? 100) : 100
 
-    readonly property color clockBgColor: root.cfgUseBlackBg ? Appearance.m3colors.m3shadow : WidgetColorScheme.cardBgColor
+    readonly property real cfgBlurRadius: Math.max(0, Math.min(64, Config.ready ? (Config.options.background.widgets.concentric_clock.blurRadius ?? Config.options.background.widgets.blurRadius ?? 32) : 32))
+    readonly property real cfgTransparency: Math.max(0.0, Math.min(1.0, Config.ready ? (Config.options.background.widgets.concentric_clock.transparency ?? 0.45) : 0.45))
+
+    readonly property color clockBgColor: root.cfgUseBlackBg ? Appearance.m3colors.m3shadow : Appearance.colors.colPrimaryContainer
+    readonly property color clockTextColor: root.cfgUseBlackBg ? WidgetColorScheme.textColorOnBg : Appearance.colors.colPrimary
+    readonly property color clockSubtextColor: root.cfgUseBlackBg ? WidgetColorScheme.subtextColorOnBg : ColorUtils.applyAlpha(root.clockTextColor, 0.85)
+    readonly property color clockAccentColor: root.cfgUseBlackBg ? WidgetColorScheme.accentColor : Appearance.colors.colOnPrimaryContainer
 
     // Dynamic offset for sub-dials based on dialStyle to prevent overlapping numbers
     readonly property real dialInnerMargin: ((cfgDialStyle === "concentric" || cfgDialStyle === "inner_only" || cfgDialStyle === "full_dense") ? 0.08 : 0.02) + cfgSubdialMarginOffset
 
-    property int clockSecond: DateTime.clock.seconds
-    Timer {
-        running: root.cfgSecondHandStyle !== "hide"
-        repeat: true
-        interval: 1000
-        onTriggered: root.clockSecond = new Date().getSeconds()
+    SystemClock {
+        id: localSystemClock
+        precision: SystemClock.Seconds
     }
+
+    property int clockSecond: localSystemClock.seconds
 
     StyledDropShadow {
         target: clockBgCircle
@@ -95,17 +101,100 @@ AbstractBackgroundWidget {
                 id: clockBgCircle
                 anchors.fill: parent
                 radius: width / 2
-                color: WidgetColorScheme.tintBackground(root.clockBgColor)
+                color: (root.cfgBlurRadius > 0 && root.wallpaperItem !== null) ? "transparent" : ColorUtils.applyAlpha(root.clockBgColor, 1.0 - root.cfgTransparency)
                 clip: true
 
-                // 1. Dial Canvas
-                ConcentricDialCanvas {
+                layer.enabled: true
+                layer.effect: OpacityMask {
+                    maskSource: Rectangle {
+                        width: clockBgCircle.width
+                        height: clockBgCircle.height
+                        radius: width / 2
+                        color: "white"
+                        visible: false
+                    }
+                }
+
+                // Wallpaper blur sampler within circle behind existing children
+                FastBlurred {
+                    id: bgBlur
                     anchors.fill: parent
-                    dialStyle: root.cfgDialStyle
-                    showMinuteDot: root.cfgShowMinuteDot
-                    boldFont: root.cfgBoldFont
-                    dialMarginOffset: root.cfgDialMarginOffset
-                    hideMinutePillArea: root.cfgMinuteStyle !== "hide"
+                    cardRadius: width / 2
+                    blurSource: root.wallpaperItem
+                    blurRadius: root.cfgBlurRadius
+                    trackX: root.x
+                    trackY: root.y
+                    tint: root.clockBgColor
+                    tintOpacity: 1.0 - root.cfgTransparency
+                    visible: root.cfgBlurRadius > 0 && root.wallpaperItem !== null
+                }
+
+                // 1. Dial Canvas wrapped in stationary Item with cutout mask for seconds readout
+                Item {
+                    id: dialCanvasWrapper
+                    anchors.fill: parent
+
+                    readonly property bool maskActive: root.cfgDialStyle === "concentric" && root.cfgMinuteStyle === "pill_horizontal"
+
+                    layer.enabled: maskActive
+                    layer.effect: OpacityMask {
+                        maskSource: Canvas {
+                            id: dialFadeMask
+                            width: dialCanvasWrapper.width
+                            height: dialCanvasWrapper.height
+                            visible: false
+                            contextType: "2d"
+
+                            onPaint: {
+                                var ctx = getContext("2d");
+                                var w = width;
+                                var h = height;
+                                ctx.reset();
+                                ctx.fillStyle = "white";
+                                ctx.fillRect(0, 0, w, h);
+
+                                ctx.globalCompositeOperation = "destination-out";
+                                var cx = w * 0.93;
+                                var cy = h * 0.5;
+                                var rOuter = w * 0.075;
+                                var rInner = w * 0.04;
+                                var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rOuter);
+                                grad.addColorStop(0.0, "rgba(0, 0, 0, 1.0)");
+                                grad.addColorStop(rInner / rOuter, "rgba(0, 0, 0, 1.0)");
+                                grad.addColorStop(1.0, "rgba(0, 0, 0, 0.0)");
+                                ctx.fillStyle = grad;
+                                ctx.beginPath();
+                                ctx.arc(cx, cy, rOuter, 0, 2 * Math.PI);
+                                ctx.fill();
+                            }
+
+                            Connections {
+                                target: dialCanvasWrapper
+                                function onMaskActiveChanged() {
+                                    if (dialCanvasWrapper.maskActive) {
+                                        dialFadeMask.requestPaint();
+                                    }
+                                }
+                            }
+
+                            onWidthChanged: requestPaint()
+                            onHeightChanged: requestPaint()
+                        }
+                    }
+
+                    ConcentricDialCanvas {
+                        anchors.fill: parent
+                        rotateSeconds: root.cfgDialStyle === "concentric"
+                        animationActive: root.live
+                        dialStyle: root.cfgDialStyle
+                        showMinuteDot: root.cfgShowMinuteDot
+                        boldFont: root.cfgBoldFont
+                        dialMarginOffset: root.cfgDialMarginOffset
+                        hideMinutePillArea: root.cfgMinuteStyle !== "hide"
+                        textColor: root.clockTextColor
+                        subtextColor: root.clockSubtextColor
+                        accentColor: root.clockAccentColor
+                    }
                 }
 
                 // Cookie Clock Big Hour Numbers overlay (Style 7: numbers)
@@ -113,7 +202,7 @@ AbstractBackgroundWidget {
                     anchors.fill: parent
                     shown: root.cfgDialStyle === "numbers"
                     sourceComponent: BigHourNumbers {
-                        color: WidgetColorScheme.textColorOnBg
+                        color: root.clockTextColor
                         numberSize: parent.width * 0.3
                         fontSize: Math.round(parent.width * 0.28)
                         margins: Math.round(parent.width * (0.05 - root.cfgDialMarginOffset))
@@ -125,7 +214,7 @@ AbstractBackgroundWidget {
                     anchors.fill: parent
                     radius: width / 2
                     color: "transparent"
-                    border.color: ColorUtils.applyAlpha(WidgetColorScheme.subtextColorOnBg, root.cfgFrameStyle === "ring_thick" ? 0.35 : 0.2)
+                    border.color: ColorUtils.applyAlpha(root.clockSubtextColor, root.cfgFrameStyle === "ring_thick" ? 0.35 : 0.2)
                     border.width: root.cfgFrameStyle === "ring_thick" ? 4 : root.cfgFrameStyle === "ring_thin" ? 1.5 : 0
                     visible: root.cfgFrameStyle === "ring_thin" || root.cfgFrameStyle === "ring_thick"
                 }
@@ -143,7 +232,7 @@ AbstractBackgroundWidget {
                                 width: index % 5 === 0 ? 3 : 1.5
                                 height: width
                                 radius: width / 2
-                                color: ColorUtils.applyAlpha(WidgetColorScheme.subtextColorOnBg, index % 5 === 0 ? 0.6 : 0.3)
+                                color: ColorUtils.applyAlpha(root.clockSubtextColor, index % 5 === 0 ? 0.6 : 0.3)
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 anchors.top: parent.top
                                 anchors.topMargin: 2
@@ -156,7 +245,11 @@ AbstractBackgroundWidget {
                 FadeLoader {
                     anchors.fill: parent
                     shown: root.cfgShowArc24h
-                    sourceComponent: ConcentricArc24h {}
+                    sourceComponent: ConcentricArc24h {
+                        textColor: root.clockTextColor
+                        subtextColor: root.clockSubtextColor
+                        accentColor: root.clockAccentColor
+                    }
                 }
 
                 // 4. Hour Sub-Dial (Bottom-Left 7:30)
@@ -168,6 +261,9 @@ AbstractBackgroundWidget {
                     shown: root.cfgShowHourSubDial
                     sourceComponent: ConcentricSubDial {
                         type: "hour"
+                        textColor: root.clockTextColor
+                        subtextColor: root.clockSubtextColor
+                        accentColor: root.clockAccentColor
                     }
                 }
 
@@ -178,6 +274,9 @@ AbstractBackgroundWidget {
                     shown: root.cfgShowSunsetDial
                     sourceComponent: ConcentricSubDial {
                         type: "sunset"
+                        textColor: root.clockTextColor
+                        subtextColor: root.clockSubtextColor
+                        accentColor: root.clockAccentColor
                     }
                 }
 
@@ -189,6 +288,9 @@ AbstractBackgroundWidget {
                     shown: root.cfgBottomSubDialContent !== "none"
                     sourceComponent: ConcentricComplication {
                         type: root.cfgBottomSubDialContent
+                        textColor: root.clockTextColor
+                        subtextColor: root.clockSubtextColor
+                        accentColor: root.clockAccentColor
                     }
                 }
 
@@ -204,6 +306,7 @@ AbstractBackgroundWidget {
                         customWeight: root.cfgHourFontWeight
                         customWidth: root.cfgHourFontWidth
                         customRound: root.cfgHourFontRound
+                        color: root.clockTextColor
                     }
                 }
 
@@ -217,6 +320,15 @@ AbstractBackgroundWidget {
                         baseWidth: clockContainer.width
                         minuteStyle: root.cfgMinuteStyle
                         boldFont: root.cfgBoldFont
+                        textColor: root.clockTextColor
+                        accentColor: root.clockAccentColor
+                        outlineColor: ColorUtils.applyAlpha(root.clockTextColor, 0.5)
+                        pillBg: root.cfgUseBlackBg ? WidgetColorScheme.pillBgColor : ColorUtils.applyAlpha(root.clockBgColor, 0.45)
+                        filled: !root.cfgUseBlackBg
+                        showSeconds: root.cfgDialStyle === "concentric" && root.cfgMinuteStyle === "pill_horizontal"
+                        second: localSystemClock.seconds
+                        minute: localSystemClock.minutes
+                        secondsCenterX: clockContainer.width * (0.93 - root.cfgMinutePillLeftMargin)
                     }
                 }
             }
@@ -240,7 +352,7 @@ AbstractBackgroundWidget {
                     anchors.fill: parent
                     clockMinute: DateTime.clock.minutes
                     style: root.cfgMinuteHandStyle
-                    color: WidgetColorScheme.subtextColorOnBg
+                    color: root.clockSubtextColor
                 }
             }
 
@@ -253,7 +365,7 @@ AbstractBackgroundWidget {
                     clockHour: DateTime.clock.hours % 12
                     clockMinute: DateTime.clock.minutes
                     style: root.cfgHourHandStyle
-                    color: WidgetColorScheme.accentColor
+                    color: root.clockAccentColor
                 }
             }
 
@@ -265,7 +377,7 @@ AbstractBackgroundWidget {
                 sourceComponent: SecondHand {
                     clockSecond: root.clockSecond
                     style: root.cfgSecondHandStyle
-                    color: WidgetColorScheme.surfaceVariantColor
+                    color: root.clockSubtextColor
                 }
             }
 
@@ -278,7 +390,7 @@ AbstractBackgroundWidget {
                     implicitWidth: 6
                     implicitHeight: 6
                     radius: 3
-                    color: WidgetColorScheme.pillFillColor
+                    color: root.clockTextColor
                 }
             }
 

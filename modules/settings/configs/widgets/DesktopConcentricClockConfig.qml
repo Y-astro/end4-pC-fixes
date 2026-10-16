@@ -86,6 +86,33 @@ ContentPage {
                 Layout.preferredHeight: 4
             }
 
+            ContentSubsection {
+                title: Translation.tr("Appearance")
+                icon: "palette"
+                Layout.fillWidth: true
+
+                ConfigSlider {
+                    buttonIcon: "blur_on"
+                    text: Translation.tr("Blur amount")
+                    usePercentTooltip: false
+                    value: Config.options.background.widgets.concentric_clock.blurRadius
+                    from: 0
+                    to: 64
+                    stepSize: 1
+                    onMoved: Config.options.background.widgets.concentric_clock.blurRadius = value
+                }
+
+                ConfigSlider {
+                    buttonIcon: "opacity"
+                    text: Translation.tr("Background transparency")
+                    value: Config.options.background.widgets.concentric_clock.transparency * 100
+                    from: 0
+                    to: 100
+                    stepSize: 1
+                    onMoved: Config.options.background.widgets.concentric_clock.transparency = value / 100
+                }
+            }
+
             // ── Dial Style ──
             ContentSubsection {
                 title: Translation.tr("Dial style")

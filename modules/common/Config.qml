@@ -2505,6 +2505,8 @@ Singleton {
                         property real x: 400
                         property real y: 100
                         property int widgetSize: 100
+                        property real blurRadius: root.options.background.widgets.blurRadius
+                        property real transparency: 0.45
                         property string dialStyle: "concentric"
                         property string frameStyle: "none"
                         property bool boldFont: false

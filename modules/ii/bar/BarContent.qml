@@ -11,11 +11,41 @@ import qs.modules.common.functions
 
 Item {
     id: root
+    function isTrayAt(x, y) {
+        function checkItem(it) {
+            if (!it || !it.visible) return false;
+            if (it.objectName === "sysTrayModule") {
+                const pt = it.mapFromItem(root, x, y);
+                if (pt.x >= 0 && pt.x <= it.width && pt.y >= 0 && pt.y <= it.height) {
+                    return true;
+                }
+            }
+            if (it.children) {
+                for (let i = 0; i < it.children.length; i++) {
+                    if (checkItem(it.children[i])) return true;
+                }
+            }
+            return false;
+        }
+        return checkItem(root);
+    }
+
     MouseArea {
         anchors.fill: parent
         z: 100000
         acceptedButtons: Qt.RightButton
+        onPressed: mouse => {
+            if (root.isTrayAt(mouse.x, mouse.y)) {
+                mouse.accepted = false;
+                return;
+            }
+            mouse.accepted = true;
+        }
         onClicked: mouse => {
+            if (root.isTrayAt(mouse.x, mouse.y)) {
+                mouse.accepted = false;
+                return;
+            }
             const window = root.QsWindow.window;
             const point = root.mapToItem(null, mouse.x, mouse.y);
             GlobalStates.desktopMenuId = "bar";
@@ -244,6 +274,7 @@ Item {
                             Loader {
                                 Layout.fillHeight: true
                                 source: root.getWidgetUrl(modelData)
+                                objectName: modelData === "sysTray" ? "sysTrayModule" : ""
                                 onLoaded: {
                                     if (item && item.hasOwnProperty("mirrored"))
                                         item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index)
@@ -275,6 +306,7 @@ Item {
                         Loader {
                             Layout.fillHeight: true
                             source: root.getWidgetUrl(modelData)
+                            objectName: modelData === "sysTray" ? "sysTrayModule" : ""
                             onLoaded: {
                                 if (item && item.hasOwnProperty("mirrored"))
                                     item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index)
@@ -290,6 +322,7 @@ Item {
                         Layout.topMargin: Config.options.bar.bottom ? -5 : 3
                         Layout.alignment: Qt.AlignVCenter
                         source: root.getWidgetUrl(modelData)
+                        objectName: modelData === "sysTray" ? "sysTrayModule" : ""
                         onLoaded: {
                             if (item && item.hasOwnProperty("mirrored"))
                                 item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index)
@@ -338,6 +371,7 @@ Item {
                             Loader {
                                 Layout.fillHeight: true
                                 source: root.getWidgetUrl(modelData)
+                                objectName: modelData === "sysTray" ? "sysTrayModule" : ""
                                 onLoaded: {
                                     if (item && item.hasOwnProperty("mirrored"))
                                         item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index)
@@ -370,6 +404,7 @@ Item {
                         Loader {
                             Layout.fillHeight: true
                             source: root.getWidgetUrl(modelData)
+                            objectName: modelData === "sysTray" ? "sysTrayModule" : ""
                             onLoaded: {
                                 if (item && item.hasOwnProperty("mirrored"))
                                     item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index)
@@ -384,6 +419,7 @@ Item {
                         Layout.fillHeight: false
                         Layout.topMargin: Config.options.bar.bottom ? -5 : 3
                         source: root.getWidgetUrl(modelData)
+                        objectName: modelData === "sysTray" ? "sysTrayModule" : ""
                         onLoaded: {
                             if (item && item.hasOwnProperty("mirrored"))
                                 item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index)
@@ -433,6 +469,7 @@ Item {
                             Loader {
                                 Layout.fillHeight: true
                                 source: root.getWidgetUrl(modelData)
+                                objectName: modelData === "sysTray" ? "sysTrayModule" : ""
                                 onLoaded: {
                                     if (item && item.hasOwnProperty("mirrored")) {
                                         try {
@@ -467,6 +504,7 @@ Item {
                         Loader {
                             Layout.fillHeight: true
                             source: root.getWidgetUrl(modelData)
+                            objectName: modelData === "sysTray" ? "sysTrayModule" : ""
                             onLoaded: {
                                 if (item && item.hasOwnProperty("mirrored")) {
                                     try {
@@ -484,6 +522,7 @@ Item {
                         Layout.fillHeight: false
                         Layout.topMargin: Config.options.bar.bottom ? -5 : 3
                         source: root.getWidgetUrl(modelData)
+                        objectName: modelData === "sysTray" ? "sysTrayModule" : ""
                         onLoaded: {
                             if (item && item.hasOwnProperty("mirrored")) {
                                 try {

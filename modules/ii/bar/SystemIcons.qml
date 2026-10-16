@@ -111,11 +111,14 @@ Item {
             }
         }
         Revealer {
-            reveal: Audio.source?.audio?.muted ?? false
+            reveal: Boolean(Audio.source?.audio && !Audio.source.audio.muted)
             MaterialSymbol {
-                text: "mic_off"
+                text: "mic"
                 iconSize: Appearance.font.pixelSize.larger
                 color: root.isMaterial ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer1
+                StyledToolTip {
+                    text: Translation.tr("Microphone is on")
+                }
             }
         }
         Loader {

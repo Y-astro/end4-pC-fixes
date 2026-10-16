@@ -39,6 +39,7 @@ Item {
                 wallpaperItem: Qt.binding(() => root.wallpaperItem),
                 configEntry: Qt.binding(() => root.placement),
                 editInstanceId: Qt.binding(() => String(root.instance.id ?? root.instance.instanceId ?? "")),
+                instanceId: Qt.binding(() => String(root.instance.id ?? root.instance.instanceId ?? "")),
                 editWidgetId: Qt.binding(() => String(root.instance.widgetId)),
                 lockBehavior: Qt.binding(() => root.instance.lockBehavior ?? "keep")
             });

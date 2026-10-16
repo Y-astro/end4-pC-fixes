@@ -13,7 +13,7 @@ Rectangle {
     property string query: ""
     property bool showingOptions: false
     property var collapsedCategories: ({})
-    readonly property var instance: (Config.options.background.activeWidgets ?? []).find(entry => entry.id === GlobalStates.editWidgetInstanceId)
+    readonly property var instance: (Config.options.background.activeWidgets ?? []).find(entry => (entry.id ?? entry.instanceId) === GlobalStates.editWidgetInstanceId)
     readonly property var entry: GlobalStates.editWidgetInstanceId ? root.instance : Config.options.background.widgets[GlobalStates.editWidgetKey]
     readonly property var metadata: root.instance ? WidgetsRegistry.getWidgetMetadata(root.instance.widgetId) : null
     readonly property var legacy: LegacyWidgetCatalog.widgets.find(entry => entry.id === GlobalStates.editWidgetKey)
@@ -87,6 +87,31 @@ Rectangle {
             Config.options.background.activeWidgets = Config.options.background.activeWidgets.map(entry => entry.id === GlobalStates.editWidgetInstanceId ? Object.assign({}, entry, { [key]: value }) : entry);
         else root.entry[key] = value;
     }
+    function selectOrAdd(widget) {
+        if (widget.legacy) {
+            const cfg = Config.options.background.widgets[widget.id];
+            if (cfg && cfg.enable) {
+                GlobalStates.selectEditWidget(widget.id, "", widget.id);
+            } else {
+                root.add(widget);
+            }
+            return;
+        }
+        const activeList = Config.options.background.activeWidgets ?? [];
+        const matching = activeList.filter(entry => (entry.widgetId ?? entry.id) === widget.id);
+        if (matching.length === 0) {
+            root.add(widget);
+            return;
+        }
+        let target = matching.find(entry => (entry.id ?? entry.instanceId) === GlobalStates.editWidgetInstanceId);
+        if (!target) {
+            const currentMonitor = root.screen ? root.screen.name : (GlobalStates.editModeMonitorName || "");
+            target = matching.find(entry => !entry.monitorName || entry.monitorName === currentMonitor);
+        }
+        if (!target) target = matching[0];
+        const targetId = String(target.id ?? target.instanceId ?? "");
+        GlobalStates.selectEditWidget(targetId, targetId, widget.id);
+    }
     function add(widget) {
         if (widget.legacy) {
             const cfg = Config.options.background.widgets[widget.id];
@@ -102,9 +127,12 @@ Rectangle {
         }
     }
     function removeSelection() {
-        if (GlobalStates.editWidgetInstanceId)
-            Config.options.background.activeWidgets = Config.options.background.activeWidgets.filter(entry => entry.id !== GlobalStates.editWidgetInstanceId);
-        else if (root.entry) root.entry.enable = false;
+        const instanceId = GlobalStates.editWidgetInstanceId;
+        if (instanceId) {
+            Config.options.background.activeWidgets = (Config.options.background.activeWidgets ?? []).filter(entry => (entry.id ?? entry.instanceId) !== instanceId);
+        } else if (root.entry) {
+            root.entry.enable = false;
+        }
         GlobalStates.selectEditWidget("", "", "");
     }
     function duplicate() {
@@ -357,7 +385,7 @@ Rectangle {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             height: 56
-                            onClicked: root.add(catalogItemWrapper.modelData)
+                            onClicked: root.selectOrAdd(catalogItemWrapper.modelData)
                             contentItem: RowLayout {
                                 anchors.fill: parent; anchors.margins: 8
                                 MaterialSymbol { text: catalogItemWrapper.modelData.icon || "widgets"; iconSize: 24 }
@@ -367,7 +395,7 @@ Rectangle {
                                     StyledText { text: catalogItemWrapper.modelData.category || ""; font.pixelSize: 11 }
                                 }
                                 MaterialSymbol {
-                                    text: catalogItemWrapper.modelData.legacy && (Config.options.background.widgets[catalogItemWrapper.modelData.id] && Config.options.background.widgets[catalogItemWrapper.modelData.id].enable) ? "check" : "add"
+                                    text: (catalogItemWrapper.modelData.legacy ? (Config.options.background.widgets[catalogItemWrapper.modelData.id] && Config.options.background.widgets[catalogItemWrapper.modelData.id].enable) : Config.isWidgetActive(catalogItemWrapper.modelData.id)) ? "check" : "add"
                                     iconSize: 20
                                 }
                             }

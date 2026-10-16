@@ -22,10 +22,12 @@ AbstractWidget {
     property bool paused: false
     property bool live: root.visible && root.opacity > 0 && !root.paused
     property string editInstanceId: ""
+    property string instanceId: ""
     property string editWidgetId: ""
-    readonly property string editKey: editInstanceId || configEntryName
+    readonly property string resolvedInstanceId: editInstanceId || instanceId || ""
+    readonly property string editKey: resolvedInstanceId || configEntryName
     function selectForEditing() {
-        GlobalStates.selectEditWidget(root.editKey, root.editInstanceId, root.configEntryName);
+        GlobalStates.selectEditWidget(root.editKey, root.resolvedInstanceId, root.editWidgetId || root.configEntryName);
     }
 
     property real resizeMaxScale: 2
@@ -62,8 +64,9 @@ AbstractWidget {
     function commitPosition() {
         const newX = Math.max(0, Math.min(root.x, root.scaledScreenWidth - root.width));
         const newY = Math.max(0, Math.min(root.y, root.scaledScreenHeight - root.height));
-        if (root.editInstanceId) {
-            const instanceId = root.editInstanceId;
+        const currentInstId = root.resolvedInstanceId;
+        if (currentInstId) {
+            const instanceId = currentInstId;
             const newZ = root.z;
             // Replacing the model synchronously destroys the delegate. Finish
             // the release handlers first; the replacement restores its bindings.
